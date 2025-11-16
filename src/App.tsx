@@ -7,7 +7,7 @@ import './scss/style.scss'
 import './scss/examples.scss'
 
 // ⬇️ Auth context (from earlier steps)
-import { AuthProvider, useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/context/AuthContext'
 
 // Containers
 const DefaultLayout = React.lazy(() => import('./layout/DefaultLayout'))
@@ -26,31 +26,67 @@ const Unauthorized = () => (
   </div>
 )
 
+
+function FullScreenSpinner() {
+  return (
+    <div className="pt-3 text-center">
+      <CSpinner color="primary" variant="grow" />
+    </div>
+  )
+}
+
 /** ─────────────────────────────
  * Route guards
  * ────────────────────────────*/
 function ProtectedRoute() {
   const { loading, session } = useAuth()
-  if (loading) return null // or a centered spinner
+
+  console.log('[ProtectedRoute] loading:', loading, 'session:', !!session)
+
+  if (loading) return <FullScreenSpinner />
+
   return session ? <Outlet /> : <Navigate to="/login" replace />
 }
 
 function RoleRoute({ allow }: { allow: Array<'admin' | 'user'> }) {
-  const { loading, profile } = useAuth()
-  if (loading) return null
-  if (!profile) return <Navigate to="/login" replace />
-  return allow.includes(profile.role) ? <Outlet /> : <Navigate to="/unauthorized" replace />
+  const { loading, profile, session } = useAuth()
+
+  console.log('[RoleRoute] loading:', loading, 'session:', !!session, 'profile:', profile)
+
+  if (loading) return <FullScreenSpinner />
+
+  if (!session) return <Navigate to="/login" replace />
+
+  // ✅ Do NOT block forever on missing profile.
+  // If we don't have a profile yet, just let the user through for now.
+  if (!profile) return <Outlet />
+
+  return allow.includes(profile.role)
+    ? <Outlet />
+    : <Navigate to="/unauthorized" replace />
 }
+
 
 /** Send user to the proper dashboard based on profile.role */
 function HomeRedirect() {
-  const { loading, profile } = useAuth()
-  if (loading) return null
-  if (!profile) return <Navigate to="/login" replace />
+  const { loading, profile, session } = useAuth()
+
+  console.log('[HomeRedirect] loading:', loading, 'session:', !!session, 'profile:', profile)
+
+  if (loading) return <FullScreenSpinner />
+
+  if (!session) return <Navigate to="/login" replace />
+
+  // ✅ Fallback: if profile is missing, treat user as a normal user
+  if (!profile) {
+    return <Navigate to="/app/dashboard" replace />
+  }
+
   return profile.role === 'admin'
-    ? <Navigate to="/admin/dashboard" replace /> // or `/admin` + index route
+    ? <Navigate to="/admin/dashboard" replace />
     : <Navigate to="/app/dashboard" replace />
 }
+
 
 
 
@@ -70,7 +106,6 @@ const App = () => {
   }, [])
 
   return (
-    
       <HashRouter>
         <Suspense
           fallback={

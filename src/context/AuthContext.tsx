@@ -32,78 +32,119 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    console.log(data)
     if (data) {
       setProfile(data as Profile)
+      console.log(data)
     }
   }
 
-  useEffect(() => {
-    let mounted = true
+useEffect(() => {
+  let mounted = true
 
-    ;(async () => {
+  ;(async () => {
+    try {
       const { data, error } = await supabase.auth.getSession()
+
       if (!mounted) return
 
       if (error) {
         console.error('getSession error:', error.message)
       }
 
+      console.log('[AuthContext] initial session:', data.session)
       setSession(data.session ?? null)
 
       if (data.session?.user?.id) {
         await loadProfile(data.session.user.id)
       }
-
-      setLoading(false)
-    })()
-
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, sess) => {
-      console.log('Auth state change:', event, sess?.user?.email)
-      setSession(sess ?? null)
-
-      if (sess?.user?.id) {
-        await loadProfile(sess.user.id)
-      } else {
-        setProfile(null)
+    } catch (e) {
+      console.error('💥 getSession threw unexpectedly:', e)
+    } finally {
+      if (mounted) {
+        setLoading(false)          // ✅ ALWAYS clear loading
       }
+    }
+  })()
+
+  const { data: sub } = supabase.auth.onAuthStateChange(async (event, sess) => {
+    console.log('Auth state change:', event, sess?.user?.email)
+    setSession(sess ?? null)
+
+    if (sess?.user?.id) {
+      await loadProfile(sess.user.id)
+    } else {
+      setProfile(null)
+    }
+  })
+
+  return () => {
+    mounted = false
+    sub?.subscription.unsubscribe()
+  }
+}, [])
+
+
+const signIn: AuthState['signIn'] = async (email, password) => {
+  console.log('🟡 [AuthContext] signIn called with:', email)
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     })
 
-    return () => {
-      mounted = false
-      sub?.subscription.unsubscribe()
+    console.log('🟡 [AuthContext] signIn result:', { data, error })
+
+    if (error) {
+      console.error('❌ [AuthContext] signIn error:', error.message)
+      return { error }
     }
-  }, [])
 
-  const signIn: AuthState['signIn'] = async (email, password) => {
-    console.log('Attempting signIn for email:', email)
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  console.log('RESULT FROM SUPABASE:', { data, error })
+    // ✅ update session immediately so ProtectedRoute sees it
+    setSession(data.session ?? null)
 
-
-  if (error) {
-    console.error('signIn error:', error.message)
-    return { error }
-  }
-
-  if (data.user?.id) {
-    console.log('signIn successful for user ID:', data.user.id)
-    try {
-      await loadProfile(data.user.id)
-    } catch (err) {
-      console.error('loadProfile error:', err)
-      // don't rethrow, just log
+    if (data.user?.id) {
+      try {
+        await loadProfile(data.user.id)
+      } catch (err) {
+        console.error('💥 [AuthContext] loadProfile error after signIn:', err)
+      }
     }
-  }
 
-  return {}
+    return {}
+  } catch (e) {
+    console.error('💥 [AuthContext] signIn threw unexpectedly:', e)
+    return { error: e as Error }
+  }
 }
 
 
-  const signOut = async () => {
-    await supabase.auth.signOut()
-    setSession(null)
-    setProfile(null)
-  }
+
+
+const signOut: AuthState['signOut'] = async () => {
+  console.log('🟡 signOut() from AuthContext called')
+
+  // Fire-and-forget, we don't depend on the result
+  supabase.auth
+    .signOut({ scope: 'local' })       // or just signOut() if you're on v1
+    .then((res) => {
+      console.log('ℹ️ supabase signOut finished:', res)
+    })
+    .catch((err) => {
+      console.error('💥 supabase signOut error:', err)
+    })
+
+  // Clear our own auth state immediately
+  setSession(null)
+  setProfile(null)
+  console.log('🧹 Auth state cleared (session & profile set to null)')
+
+  // Force user to login (HashRouter)
+  window.location.hash = '#/login'
+}
+
+
 
   return (
     <AuthContext.Provider value={{ loading, session, profile, signIn, signOut }}>

@@ -28,31 +28,34 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault()
+  console.log('🟢 [Login] form submitted')
+
   setError(null)
   setLoading(true)
 
   try {
-    const { error } = await signIn(email.trim(), password)
+    const { error: signInError } = await signIn(email.trim(), password)
 
-    if (error) {
-      console.error('Login error:', error)
-      setError(error.message)
+    if (signInError) {
+      console.error('Login error:', signInError)
+      setError(signInError.message)
       return
     }
 
-    // ✅ Let HomeRedirect decide /admin or /app
-    
+    // ✅ session is already set in AuthContext, so guard will allow us
+    navigate('/', { replace: true })
   } catch (err) {
-    console.error('Unexpected signIn error:', err)
+    console.error('Unexpected signIn error in Login:', err)
     setError('Something went wrong while logging in.')
   } finally {
-    // ✅ This ALWAYS runs, even if signIn throws
     setLoading(false)
-    navigate('/', { replace: true })
   }
 }
+
+
+  
 
 
   return (
@@ -109,6 +112,7 @@ const Login: React.FC = () => {
                           type="submit"
                           disabled={loading}
                         >
+
                           {loading ? 'Signing in…' : 'Login'}
                         </CButton>
                       </CCol>
@@ -121,20 +125,6 @@ const Login: React.FC = () => {
                       </CCol>
                     </CRow>
                   </CForm>
-                </CCardBody>
-              </CCard>
-
-              <CCard className="text-white bg-primary py-5" style={{ width: '44%' }}>
-                <CCardBody className="text-center">
-                  <div>
-                    <h2>Sign up</h2>
-                    <p>Create your account to access your theatre CRM.</p>
-                    <Link to="/register">
-                      <CButton color="primary" className="mt-3" active tabIndex={-1}>
-                        Register Now!
-                      </CButton>
-                    </Link>
-                  </div>
                 </CCardBody>
               </CCard>
             </CCardGroup>
