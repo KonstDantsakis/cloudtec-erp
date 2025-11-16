@@ -70,7 +70,7 @@ const App = () => {
   }, [])
 
   return (
-    <AuthProvider>
+    
       <HashRouter>
         <Suspense
           fallback={
@@ -110,7 +110,7 @@ const App = () => {
           </Routes>
         </Suspense>
       </HashRouter>
-    </AuthProvider>
+    
   )
 }
 
