@@ -30,8 +30,6 @@ const Login: React.FC = () => {
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault()
-  console.log('🟢 [Login] form submitted')
-
   setError(null)
   setLoading(true)
 
@@ -44,15 +42,16 @@ const handleSubmit = async (e: React.FormEvent) => {
       return
     }
 
-    // ✅ session is already set in AuthContext, so guard will allow us
+    // ✅ user is set in AuthContext, guards will allow access
     navigate('/', { replace: true })
   } catch (err) {
-    console.error('Unexpected signIn error in Login:', err)
+    console.error('Unexpected signIn error:', err)
     setError('Something went wrong while logging in.')
   } finally {
     setLoading(false)
   }
 }
+
 
 
   

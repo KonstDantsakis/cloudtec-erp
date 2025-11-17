@@ -6,7 +6,7 @@ type Profile = { id: string; full_name?: string | null; role: Role }
 
 type AuthState = {
   loading: boolean
-  session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'] | null
+  user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'] | null
   profile: Profile | null
   signIn: (email: string, password: string) => Promise<{ error?: Error }>
   signOut: () => Promise<void>
@@ -16,7 +16,7 @@ const AuthContext = createContext<AuthState | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
-  const [session, setSession] = useState<AuthState['session']>(null)
+  const [user, setUser] = useState<AuthState['user']>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
 
   const loadProfile = async (userId: string) => {
@@ -27,127 +27,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .single()
 
     if (error) {
-      console.error('Error loading profile:', error.message)
+      console.error('[AuthContext] Error loading profile:', error.message)
       setProfile(null)
       return
     }
 
-    console.log(data)
-    if (data) {
-      setProfile(data as Profile)
-      console.log(data)
-    }
+    console.log('[AuthContext] loaded profile:', data)
+    if (data) setProfile(data as Profile)
   }
 
-useEffect(() => {
-  let mounted = true
+  useEffect(() => {
+    // ✅ Single source of truth: INITIAL_SESSION + all other events
+    const { data: sub } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('[AuthContext] Auth state change:', event, session?.user?.email)
 
-  ;(async () => {
+        if (session?.user) {
+          setUser(session.user)
+          await loadProfile(session.user.id)
+        } else {
+          setUser(null)
+          setProfile(null)
+        }
+
+        // After the first event we are **definitely** done loading
+        setLoading(false)
+      },
+    )
+
+    return () => {
+      sub?.subscription.unsubscribe()
+    }
+  }, [])
+
+  const signIn: AuthState['signIn'] = async (email, password) => {
+    console.log('🟡 [AuthContext] signIn called with:', email)
+
     try {
-      const { data, error } = await supabase.auth.getSession()
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-      if (!mounted) return
+      console.log('[AuthContext] signIn result:', { data, error })
 
       if (error) {
-        console.error('getSession error:', error.message)
+        console.error('❌ [AuthContext] signIn error:', error.message)
+        return { error }
       }
 
-      console.log('[AuthContext] initial session:', data.session)
-      setSession(data.session ?? null)
-
-      if (data.session?.user?.id) {
-        await loadProfile(data.session.user.id)
-      }
+      // We don't manually touch user/profile here:
+      // onAuthStateChange('SIGNED_IN') will handle that.
+      return {}
     } catch (e) {
-      console.error('💥 getSession threw unexpectedly:', e)
-    } finally {
-      if (mounted) {
-        setLoading(false)          // ✅ ALWAYS clear loading
-      }
+      console.error('💥 [AuthContext] signIn threw unexpectedly:', e)
+      return { error: e as Error }
     }
-  })()
-
-  const { data: sub } = supabase.auth.onAuthStateChange(async (event, sess) => {
-    console.log('Auth state change:', event, sess?.user?.email)
-    setSession(sess ?? null)
-
-    if (sess?.user?.id) {
-      await loadProfile(sess.user.id)
-    } else {
-      setProfile(null)
-    }
-  })
-
-  return () => {
-    mounted = false
-    sub?.subscription.unsubscribe()
   }
-}, [])
 
+  const signOut: AuthState['signOut'] = async () => {
+    console.log('🟡 [AuthContext] signOut called')
 
-const signIn: AuthState['signIn'] = async (email, password) => {
-  console.log('🟡 [AuthContext] signIn called with:', email)
-
-  try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    console.log('🟡 [AuthContext] signIn result:', { data, error })
-
-    if (error) {
-      console.error('❌ [AuthContext] signIn error:', error.message)
-      return { error }
-    }
-
-    // ✅ update session immediately so ProtectedRoute sees it
-    setSession(data.session ?? null)
-
-    if (data.user?.id) {
-      try {
-        await loadProfile(data.user.id)
-      } catch (err) {
-        console.error('💥 [AuthContext] loadProfile error after signIn:', err)
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'local' })
+      if (error) {
+        console.error('💥 [AuthContext] supabase signOut error:', error.message)
       }
+      // onAuthStateChange('SIGNED_OUT') will clear user/profile & set loading(false)
+    } catch (e) {
+      console.error('💥 [AuthContext] signOut threw:', e)
     }
-
-    return {}
-  } catch (e) {
-    console.error('💥 [AuthContext] signIn threw unexpectedly:', e)
-    return { error: e as Error }
   }
-}
-
-
-
-
-const signOut: AuthState['signOut'] = async () => {
-  console.log('🟡 signOut() from AuthContext called')
-
-  // Fire-and-forget, we don't depend on the result
-  supabase.auth
-    .signOut({ scope: 'local' })       // or just signOut() if you're on v1
-    .then((res) => {
-      console.log('ℹ️ supabase signOut finished:', res)
-    })
-    .catch((err) => {
-      console.error('💥 supabase signOut error:', err)
-    })
-
-  // Clear our own auth state immediately
-  setSession(null)
-  setProfile(null)
-  console.log('🧹 Auth state cleared (session & profile set to null)')
-
-  // Force user to login (HashRouter)
-  window.location.hash = '#/login'
-}
-
-
 
   return (
-    <AuthContext.Provider value={{ loading, session, profile, signIn, signOut }}>
+    <AuthContext.Provider value={{ loading, user, profile, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )

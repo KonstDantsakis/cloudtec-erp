@@ -6,7 +6,6 @@ import { CSpinner, useColorModes } from '@coreui/react'
 import './scss/style.scss'
 import './scss/examples.scss'
 
-// ⬇️ Auth context (from earlier steps)
 import { useAuth } from '@/context/AuthContext'
 
 // Containers
@@ -18,14 +17,12 @@ const Register = React.lazy(() => import('./views/pages/register/Register'))
 const Page404 = React.lazy(() => import('./views/pages/page404/Page404'))
 const Page500 = React.lazy(() => import('./views/pages/page500/Page500'))
 
-// (Optional) simple Unauthorized page
 const Unauthorized = () => (
   <div className="container py-5">
     <h4>Unauthorized</h4>
     <p>You don’t have permission to view this page.</p>
   </div>
 )
-
 
 function FullScreenSpinner() {
   return (
@@ -35,30 +32,27 @@ function FullScreenSpinner() {
   )
 }
 
-/** ─────────────────────────────
- * Route guards
- * ────────────────────────────*/
-function ProtectedRoute() {
-  const { loading, session } = useAuth()
+// ─────────────────────────────
+// Route guards
+// ─────────────────────────────
 
-  console.log('[ProtectedRoute] loading:', loading, 'session:', !!session)
+function ProtectedRoute() {
+  const { loading, user } = useAuth()
+  console.log('[ProtectedRoute] loading:', loading, 'user:', !!user)
 
   if (loading) return <FullScreenSpinner />
-
-  return session ? <Outlet /> : <Navigate to="/login" replace />
+  return user ? <Outlet /> : <Navigate to="/login" replace />
 }
 
 function RoleRoute({ allow }: { allow: Array<'admin' | 'user'> }) {
-  const { loading, profile, session } = useAuth()
-
-  console.log('[RoleRoute] loading:', loading, 'session:', !!session, 'profile:', profile)
+  const { loading, profile, user } = useAuth()
+  console.log('[RoleRoute] loading:', loading, 'user:', !!user, 'profile:', profile)
 
   if (loading) return <FullScreenSpinner />
 
-  if (!session) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/login" replace />
 
-  // ✅ Do NOT block forever on missing profile.
-  // If we don't have a profile yet, just let the user through for now.
+  // Don't hard-block if profile hasn't loaded yet
   if (!profile) return <Outlet />
 
   return allow.includes(profile.role)
@@ -66,18 +60,14 @@ function RoleRoute({ allow }: { allow: Array<'admin' | 'user'> }) {
     : <Navigate to="/unauthorized" replace />
 }
 
-
-/** Send user to the proper dashboard based on profile.role */
 function HomeRedirect() {
-  const { loading, profile, session } = useAuth()
-
-  console.log('[HomeRedirect] loading:', loading, 'session:', !!session, 'profile:', profile)
+  const { loading, profile, user } = useAuth()
+  console.log('[HomeRedirect] loading:', loading, 'user:', !!user, 'profile:', profile)
 
   if (loading) return <FullScreenSpinner />
 
-  if (!session) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/login" replace />
 
-  // ✅ Fallback: if profile is missing, treat user as a normal user
   if (!profile) {
     return <Navigate to="/app/dashboard" replace />
   }
@@ -88,16 +78,21 @@ function HomeRedirect() {
 }
 
 
-
+// ─────────────────────────────
+// App component
+// ─────────────────────────────
 
 const App = () => {
-  const { isColorModeSet, setColorMode } = useColorModes('coreui-free-react-admin-template-theme')
-  // @ts-ignore – keep your existing selector shape
+  const { isColorModeSet, setColorMode } = useColorModes(
+    'coreui-free-react-admin-template-theme',
+  )
+  // @ts-ignore
   const storedTheme = useSelector((state) => state.theme)
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.href.split('?')[1])
-    const theme = urlParams.get('theme') && urlParams.get('theme')!.match(/^[A-Za-z0-9\s]+/)! [0]
+    const theme =
+      urlParams.get('theme') && urlParams.get('theme')!.match(/^[A-Za-z0-9\s]+/)! [0]
     if (theme) setColorMode(theme)
 
     if (isColorModeSet()) return
@@ -106,46 +101,37 @@ const App = () => {
   }, [])
 
   return (
-      <HashRouter>
-        <Suspense
-          fallback={
-            <div className="pt-3 text-center">
-              <CSpinner color="primary" variant="grow" />
-            </div>
-          }
-        >
-          <Routes>
-            {/* Public */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/404" element={<Page404 />} />
-            <Route path="/500" element={<Page500 />} />
-            <Route path="/unauthorized" element={<Unauthorized />} />
+    <HashRouter>
+      <Suspense fallback={<FullScreenSpinner />}>
+        <Routes>
+          {/* Public */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/404" element={<Page404 />} />
+          <Route path="/500" element={<Page500 />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
 
-            {/* Protected root decides where to go */}
-            <Route element={<ProtectedRoute />}>
-              {/* Admin area (guarded) */}
-              <Route element={<RoleRoute allow={['admin']} />}>
-                {/* Your DefaultLayout should render admin routes under /admin/* */}
-                <Route path="/admin/*" element={<DefaultLayout />} />
-              </Route>
-
-              {/* User area (users + admins can see) */}
-              <Route element={<RoleRoute allow={['user', 'admin']} />}>
-                {/* Your DefaultLayout should render user routes under /app/* */}
-                <Route path="/app/*" element={<DefaultLayout />} />
-              </Route>
-
-              {/* Home redirect based on role */}
-              <Route path="/" element={<HomeRedirect />} />
+          {/* Protected */}
+          <Route element={<ProtectedRoute />}>
+            {/* Admin area */}
+            <Route element={<RoleRoute allow={['admin']} />}>
+              <Route path="/admin/*" element={<DefaultLayout />} />
             </Route>
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
-      </HashRouter>
-    
+            {/* User area */}
+            <Route element={<RoleRoute allow={['user', 'admin']} />}>
+              <Route path="/app/*" element={<DefaultLayout />} />
+            </Route>
+
+            {/* Home redirect */}
+            <Route path="/" element={<HomeRedirect />} />
+          </Route>
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </HashRouter>
   )
 }
 
