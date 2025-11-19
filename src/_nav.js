@@ -17,33 +17,37 @@ import {
 import { CNavGroup, CNavItem, CNavTitle } from '@coreui/react'
 
 const _nav = [
+  // DASHBOARD
   {
     component: CNavItem,
     name: 'Dashboard',
-    to: '/dashboard',
+    to: 'dashboard', // <-- RELATIVE (not "/dashboard")
     badge: {
       color: 'info',
       text: 'NEW',
     },
+    
   },
-  // ---- ΔΙΑΧΕΙΡΙΣΗ ΜΕΛΩΝ ----
+
+  // ΜΕΛΗ
   {
     component: CNavTitle,
     name: 'Μέλη',
-    
   },
   {
     component: CNavItem,
     name: 'Λίστα Μελών',
+    to: 'memberslist', // matches routes.js path
     
   },
   {
     component: CNavItem,
     name: 'Αιτήσεις Εγγραφής',
-    
+    to: 'subscriptions',
+   
   },
 
-  // ---- ΟΙΚΟΝΟΜΙΚΑ ----
+  // ΟΙΚΟΝΟΜΙΚΑ
   {
     component: CNavTitle,
     name: 'Οικονομικά',
@@ -51,20 +55,23 @@ const _nav = [
   {
     component: CNavItem,
     name: 'Συνδρομές / Έσοδα',
-   
+    to: 'subscriptionsincome',
+    
   },
   {
     component: CNavItem,
     name: 'Έξοδα',
+    to: 'expenses',
     
   },
   {
     component: CNavItem,
     name: 'Αναφορές',
+    to: 'reports',
     
   },
 
-  // ---- ΟΡΓΑΝΩΣΗ ----
+  // ΟΡΓΑΝΩΣΗ
   {
     component: CNavTitle,
     name: 'Οργάνωση',
@@ -72,19 +79,21 @@ const _nav = [
   {
     component: CNavItem,
     name: 'Παρουσίες',
+    to: 'presence',
     
   },
   {
     component: CNavItem,
     name: 'Ανακοινώσεις',
-   
+    to: 'announcements',
+    
   },
   {
     component: CNavItem,
     name: 'Χορηγοί / Banners',
+    to: 'sponsorsbanners', // <-- FIXED typo: was "/ponsorsbanners"
     
   },
- 
 ]
 
 export default _nav

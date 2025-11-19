@@ -55,7 +55,8 @@ function RoleRoute({ allow }: { allow: Array<'admin' | 'user'> }) {
   // Don't hard-block if profile hasn't loaded yet
   if (!profile) return <Outlet />
 
-  return allow.includes(profile.role)
+  // Ensure profile.role is not null before checking allowed roles
+  return profile.role != null && allow.includes(profile.role)
     ? <Outlet />
     : <Navigate to="/unauthorized" replace />
 }

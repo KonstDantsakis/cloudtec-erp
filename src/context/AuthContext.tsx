@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { supabase } from '@/lib/supabaseClient'
 
 type Role = 'admin' | 'user'
-type Profile = { id: string; full_name?: string | null; role: Role }
+type Profile = { id: string; full_name?: string | null; role: Role | null }
 
 type AuthState = {
   loading: boolean
@@ -32,36 +32,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    console.log('[AuthContext] loaded profile:', data)
-    if (data) setProfile(data as Profile)
+    if (!data) {
+      setProfile(null)
+      return
+    }
+
+    const safeProfile: Profile = {
+      id: data.id,
+      full_name: data.full_name,
+      role: (data.role as Role | null) ?? null,
+    }
+
+    console.log('[AuthContext] loaded profile:', safeProfile)
+    setProfile(safeProfile)
   }
 
   useEffect(() => {
-    // ✅ Single source of truth: INITIAL_SESSION + all other events
-    const { data: sub } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('[AuthContext] Auth state change:', event, session?.user?.email)
+    let cancelled = false
 
-        if (session?.user) {
-          setUser(session.user)
-          await loadProfile(session.user.id)
-        } else {
-          setUser(null)
-          setProfile(null)
-        }
+    const syncFromSession = async (
+      session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'],
+    ) => {
+      if (cancelled) return
 
-        // After the first event we are **definitely** done loading
-        setLoading(false)
-      },
-    )
+      if (session?.user) {
+        setUser(session.user)
+        await loadProfile(session.user.id)
+      } else {
+        setUser(null)
+        setProfile(null)
+      }
+    }
+
+    const init = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        await syncFromSession(session)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      // This keeps state in sync for SIGNED_IN / SIGNED_OUT / TOKEN_REFRESHED, etc.
+      syncFromSession(session)
+    })
+
+    init()
 
     return () => {
+      cancelled = true
       sub?.subscription.unsubscribe()
     }
   }, [])
 
   const signIn: AuthState['signIn'] = async (email, password) => {
-    console.log('🟡 [AuthContext] signIn called with:', email)
+    console.log('[AuthContext] signIn called with:', email)
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -72,15 +100,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('[AuthContext] signIn result:', { data, error })
 
       if (error) {
-        console.error('❌ [AuthContext] signIn error:', error.message)
+        console.error('[AuthContext] signIn error:', error.message)
         return { error }
       }
 
       // We don't manually touch user/profile here:
-      // onAuthStateChange('SIGNED_IN') will handle that.
+      // getSession + onAuthStateChange will handle it.
       return {}
     } catch (e) {
-      console.error('💥 [AuthContext] signIn threw unexpectedly:', e)
+      console.error('[AuthContext] signIn threw unexpectedly:', e)
       return { error: e as Error }
     }
   }
@@ -91,11 +119,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase.auth.signOut({ scope: 'local' })
       if (error) {
-        console.error('💥 [AuthContext] supabase signOut error:', error.message)
+        console.error('[AuthContext] supabase signOut error:', error.message)
       }
-      // onAuthStateChange('SIGNED_OUT') will clear user/profile & set loading(false)
+      // onAuthStateChange will sync user/profile to null
     } catch (e) {
-      console.error('💥 [AuthContext] signOut threw:', e)
+      console.error('[AuthContext] signOut threw:', e)
     }
   }
 

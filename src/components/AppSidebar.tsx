@@ -1,6 +1,7 @@
 // src/components/AppSidebar.tsx
-import React from 'react'
+import React, { useMemo } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
+import { useLocation } from 'react-router-dom'
 import {
   CCloseButton,
   CSidebar,
@@ -18,6 +19,7 @@ import { sygnet } from 'src/assets/brand/sygnet'
 
 // sidebar nav config
 import navigation from '../_nav'
+import { useAuth } from '@/context/AuthContext'
 
 // --- Redux typings (adjust to your store slice if you have one)
 type RootState = {
@@ -27,6 +29,9 @@ type RootState = {
 
 const AppSidebar: React.FC = () => {
   const dispatch = useDispatch()
+  const location = useLocation()
+  const { profile } = useAuth()
+
   const unfoldable = useSelector<RootState, boolean>((state) => state.sidebarUnfoldable)
   const sidebarShow = useSelector<RootState, boolean>((state) => state.sidebarShow)
 
@@ -41,6 +46,32 @@ const AppSidebar: React.FC = () => {
   const handleClose = () => {
     dispatch({ type: 'set', sidebarShow: false } as any)
   }
+
+  // Decide if we're in /admin or /app
+  const basePath = useMemo(() => {
+    const path = location.pathname
+    if (path.startsWith('/admin')) return '/admin'
+    if (path.startsWith('/app')) return '/app'
+    // fallback based on role
+    if (profile?.role === 'admin') return '/admin'
+    return '/app'
+  }, [location.pathname, profile?.role])
+
+  // Prefix each nav item's `to` with the base path
+  const navigationWithBase = useMemo(
+    () =>
+      (navigation as any[]).map((item) => {
+        if (!item || typeof item !== 'object') return item
+        const to = (item as any).to
+        if (!to || typeof to !== 'string') return item
+
+        // If item already has an absolute path, leave it
+        if (to.startsWith('/')) return item
+
+        return { ...item, to: `${basePath}/${to}` }
+      }),
+    [basePath],
+  )
 
   return (
     <CSidebar
@@ -61,7 +92,7 @@ const AppSidebar: React.FC = () => {
       </CSidebarHeader>
 
       {/* Sidebar navigation items */}
-      <AppSidebarNav items={navigation} />
+      <AppSidebarNav items={navigationWithBase} />
 
       <CSidebarFooter className="border-top d-none d-lg-flex">
         <CSidebarToggler onClick={handleToggleUnfoldable} />
