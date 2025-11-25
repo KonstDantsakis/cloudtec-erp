@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
+  CBadge,
   CButton,
   CCard,
   CCardBody,
@@ -9,7 +10,7 @@ import {
   CFormInput,
   CFormLabel,
   CFormSelect,
-  CFormTextarea,
+  CFormTextarea, 
   CModal,
   CModalBody,
   CModalFooter,
@@ -34,280 +35,305 @@ type Customer = {
   status: string | null
   source: string | null
   notes: string | null
-  created_at: string | null
+  primary_class_id: string | null
+  class?: {
+    id: string
+    title: string | null
+    level: string | null
+  } | null
 }
 
-type CustomerForm = {
-  full_name: string
-  email: string
-  phone: string
-  date_of_birth: string
-  status: string
-  source: string
-  notes: string
+type ClassOption = {
+  id: string
+  title: string
+  level: string | null
+  active: boolean
 }
 
-const emptyForm: CustomerForm = {
-  full_name: '',
-  email: '',
-  phone: '',
-  date_of_birth: '',
-  status: 'active', // default = ενεργός
-  source: '',
-  notes: '',
-}
-
-// dev: local edge function, prod: supabase hosted
-const FUNCTIONS_BASE_URL = import.meta.env.DEV
-  ? 'http://localhost:54321/functions/v1'
-  : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
-
-const statusLabel = (s: string | null) => {
-  if (s === 'active') return 'Ενεργός'
-  if (s === 'inactive') return 'Ανενεργός'
-  return s ?? '-'
-}
+const statusOptions = ['Ενεργός', 'Ανενεργός']
 
 const MemberList: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [classes, setClasses] = useState<ClassOption[]>([])
+
   const [loading, setLoading] = useState(true)
+  const [rowBusyId, setRowBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // filters / sort
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | string>('all')
-  const [sortOption, setSortOption] = useState<'recent' | 'oldest' | 'name_asc'>('recent')
+  const [statusFilter, setStatusFilter] = useState<'Όλες' | 'Ενεργός' | 'Ανενεργός'>('Όλες')
 
-  // modal + form
-  const [showModal, setShowModal] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState<CustomerForm>(emptyForm)
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof CustomerForm, string>>>({})
+  // modal state
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
 
-  const [rowActionId, setRowActionId] = useState<string | null>(null) // για delete/toggle state
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [dateOfBirth, setDateOfBirth] = useState('')
+  const [status, setStatus] = useState('Ενεργός')
+  const [source, setSource] = useState('')
+  const [notes, setNotes] = useState('')
+  const [primaryClassId, setPrimaryClassId] = useState<string>('')
 
-  const loadCustomers = async () => {
-    setLoading(true)
-    setError(null)
+  const resetForm = () => {
+    setFullName('')
+    setEmail('')
+    setPhone('')
+    setDateOfBirth('')
+    setStatus('Ενεργός')
+    setSource('')
+    setNotes('')
+    setPrimaryClassId('')
+    setEditingCustomer(null)
+  }
+
+  const openAddModal = () => {
+    resetForm()
+    setModalOpen(true)
+  }
+
+  const openEditModal = (customer: Customer) => {
+    setEditingCustomer(customer)
+    setFullName(customer.full_name ?? '')
+    setEmail(customer.email ?? '')
+    setPhone(customer.phone ?? '')
+    setDateOfBirth(customer.date_of_birth ?? '')
+    setStatus(customer.status ?? 'Ενεργός')
+    setSource(customer.source ?? '')
+    setNotes(customer.notes ?? '')
+    setPrimaryClassId(customer.primary_class_id ?? '')
+    setModalOpen(true)
+  }
+
+  // -------- LOAD DATA --------
+
+  const loadClasses = async () => {
     const { data, error } = await supabase
-      .from('customers')
-      .select('*')
-      .order('created_at', { ascending: false })
+      .from('classes')
+      .select('id, title, level, active')
+      .order('title', { ascending: true })
 
     if (error) {
-      console.error('[MemberList] Error loading customers:', error.message)
-      setError('Προέκυψε σφάλμα κατά τη φόρτωση των μελών.')
-      setCustomers([])
-    } else {
-      setCustomers((data ?? []) as Customer[])
+      console.error('[MemberList] classes error:', error.message)
+      throw new Error('Προέκυψε σφάλμα κατά τη φόρτωση των τμημάτων.')
     }
-    setLoading(false)
+
+    setClasses(
+      (data ?? []).map((c: any) => ({
+        id: c.id as string,
+        title: c.title as string,
+        level: (c.level as string) ?? null,
+        active: Boolean(c.active),
+      })),
+    )
+  }
+
+  const loadCustomers = async () => {
+    const { data, error } = await supabase
+      .from('customers')
+      .select(
+        `
+        id,
+        full_name,
+        email,
+        phone,
+        date_of_birth,
+        status,
+        source,
+        notes,
+        primary_class_id,
+        class:primary_class_id (
+          id,
+          title,
+          level
+        )
+      `,
+      )
+      .order('full_name', { ascending: true })
+
+    if (error) {
+      console.error('[MemberList] customers error:', error.message)
+      throw new Error('Προέκυψε σφάλμα κατά τη φόρτωση μελών.')
+    }
+
+    setCustomers((data ?? []) as any as Customer[])
+  }
+
+  const loadAll = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      await Promise.all([loadClasses(), loadCustomers()])
+    } catch (err: any) {
+      setError(err?.message ?? 'Προέκυψε σφάλμα κατά τη φόρτωση των δεδομένων.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    loadCustomers()
+    void loadAll()
   }, [])
 
-  // unique statuses from data for filter
-  const statusOptions = useMemo(() => {
-    const set = new Set<string>()
-    customers.forEach((c) => {
-      if (c.status) set.add(c.status)
-    })
-    return Array.from(set).sort()
-  }, [customers])
+  // -------- FILTERED LIST --------
 
   const filteredCustomers = useMemo(() => {
     let list = [...customers]
 
+    if (statusFilter !== 'Όλες') {
+      list = list.filter((c) => c.status === statusFilter)
+    }
+
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       list = list.filter((c) => {
+        const name = c.full_name ?? ''
+        const email = c.email ?? ''
+        const phone = c.phone ?? ''
+        const classTitle = c.class?.title ?? ''
         return (
-          (c.full_name ?? '').toLowerCase().includes(q) ||
-          (c.email ?? '').toLowerCase().includes(q) ||
-          (c.phone ?? '').toLowerCase().includes(q)
+          name.toLowerCase().includes(q) ||
+          email.toLowerCase().includes(q) ||
+          phone.toLowerCase().includes(q) ||
+          classTitle.toLowerCase().includes(q)
         )
       })
     }
 
-    if (statusFilter !== 'all') {
-      list = list.filter((c) => c.status === statusFilter)
-    }
-
-    list.sort((a, b) => {
-      if (sortOption === 'name_asc') {
-        return (a.full_name ?? '').localeCompare(b.full_name ?? '')
-      }
-
-      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
-      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
-
-      if (sortOption === 'recent') {
-        return dateB - dateA // newer first
-      }
-      if (sortOption === 'oldest') {
-        return dateA - dateB
-      }
-      return 0
-    })
-
     return list
-  }, [customers, search, statusFilter, sortOption])
+  }, [customers, search, statusFilter])
 
-  const handleOpenModal = () => {
-    setForm(emptyForm)
-    setFormErrors({})
-    setShowModal(true)
-  }
+  // -------- SAVE (CREATE / UPDATE) --------
 
-  const handleCloseModal = () => {
-    if (saving) return
-    setShowModal(false)
-  }
-
-  const handleChange = (field: keyof CustomerForm, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }))
-  }
-
-  const validateForm = (): boolean => {
-    const errors: Partial<Record<keyof CustomerForm, string>> = {}
-
-    if (!form.full_name.trim()) {
-      errors.full_name = 'Το ονοματεπώνυμο είναι υποχρεωτικό.'
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!fullName.trim()) {
+      setError('Το ονοματεπώνυμο είναι υποχρεωτικό.')
+      return
     }
 
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      errors.email = 'Μη έγκυρο email.'
-    }
-
-    setFormErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const handleSave = async () => {
-    if (!validateForm()) return
-
-    setSaving(true)
     setError(null)
+    setRowBusyId(editingCustomer?.id ?? 'new')
 
-    const payload = {
-      full_name: form.full_name.trim(),
-      email: form.email.trim() || null,
-      phone: form.phone.trim() || null,
-      date_of_birth: form.date_of_birth || null,
-      status: form.status || 'active',
-      source: form.source.trim() || null,
-      notes: form.notes.trim() || null,
+    const payload: any = {
+      full_name: fullName.trim(),
+      email: email.trim() || null,
+      phone: phone.trim() || null,
+      date_of_birth: dateOfBirth || null,
+      status,
+      source: source.trim() || null,
+      notes: notes.trim() || null,
+      primary_class_id: primaryClassId || null,
     }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
 
     try {
-      const res = await fetch(`${FUNCTIONS_BASE_URL}/create-member`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session?.access_token
-            ? { Authorization: `Bearer ${session.access_token}` }
-            : {}),
-        },
-        body: JSON.stringify(payload),
-      })
+      if (editingCustomer) {
+        const { error } = await supabase
+          .from('customers')
+          .update(payload)
+          .eq('id', editingCustomer.id)
 
-      const json = await res.json()
+        if (error) {
+          console.error('[MemberList] update error:', error.message)
+          throw new Error('Προέκυψε σφάλμα κατά την ενημέρωση μέλους.')
+        }
+      } else {
+        const { error } = await supabase.from('customers').insert([payload])
 
-      if (!res.ok) {
-        console.error('[MemberList] create-member error:', json.error)
-        setError(json.error || 'Προέκυψε σφάλμα κατά την αποθήκευση του μέλους.')
-        setSaving(false)
-        return
+        if (error) {
+          console.error('[MemberList] insert error:', error.message)
+          throw new Error('Προέκυψε σφάλμα κατά την προσθήκη μέλους.')
+        }
       }
 
-      setShowModal(false)
+      setModalOpen(false)
+      resetForm()
       await loadCustomers()
-    } catch (e) {
-      console.error('[MemberList] network error:', e)
-      setError('Προέκυψε σφάλμα δικτύου.')
+    } catch (err: any) {
+      setError(err?.message ?? 'Προέκυψε σφάλμα κατά την αποθήκευση.')
     } finally {
-      setSaving(false)
+      setRowBusyId(null)
     }
   }
 
-  // ---- status toggle (active / inactive) ----
-  const handleToggleStatus = async (customer: Customer) => {
-    const newStatus = customer.status === 'inactive' ? 'active' : 'inactive'
-    setRowActionId(customer.id)
+  // -------- DELETE / STATUS --------
+
+  const handleDelete = async (customer: Customer) => {
+    if (!window.confirm(`Να διαγραφεί οριστικά το μέλος "${customer.full_name}" ;`)) return
+
+    setRowBusyId(customer.id)
     setError(null)
-
-    const { error } = await supabase
-      .from('customers')
-      .update({ status: newStatus })
-      .eq('id', customer.id)
-
-    setRowActionId(null)
-
-    if (error) {
-      console.error('[MemberList] toggle status error:', error.message)
-      setError('Προέκυψε σφάλμα κατά την αλλαγή της κατάστασης.')
-      return
+    try {
+      const { error } = await supabase.from('customers').delete().eq('id', customer.id)
+      if (error) {
+        console.error('[MemberList] delete error:', error.message)
+        throw new Error('Προέκυψε σφάλμα κατά τη διαγραφή.')
+      }
+      await loadCustomers()
+    } catch (err: any) {
+      setError(err?.message ?? 'Προέκυψε σφάλμα κατά τη διαγραφή.')
+    } finally {
+      setRowBusyId(null)
     }
-
-    setCustomers((prev) =>
-      prev.map((c) => (c.id === customer.id ? { ...c, status: newStatus } : c)),
-    )
   }
 
-  // ---- delete single customer ----
-  const handleDeleteCustomer = async (customer: Customer) => {
-    const sure = window.confirm(
-      `Είσαι σίγουρος ότι θέλεις να διαγράψεις το μέλος "${customer.full_name ?? ''}" ; Η ενέργεια δεν αναιρείται.`,
-    )
-    if (!sure) return
+  const handleToggleActive = async (customer: Customer) => {
+    const nextStatus = customer.status === 'Ενεργός' ? 'Ανενεργός' : 'Ενεργός'
 
-    setRowActionId(customer.id)
+    setRowBusyId(customer.id)
     setError(null)
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .update({ status: nextStatus })
+        .eq('id', customer.id)
 
-    const { error } = await supabase.from('customers').delete().eq('id', customer.id)
+      if (error) {
+        console.error('[MemberList] status update error:', error.message)
+        throw new Error('Προέκυψε σφάλμα κατά την ενημέρωση κατάστασης.')
+      }
 
-    setRowActionId(null)
-
-    if (error) {
-      console.error('[MemberList] delete customer error:', error.message)
-      setError('Προέκυψε σφάλμα κατά τη διαγραφή του μέλους.')
-      return
+      await loadCustomers()
+    } catch (err: any) {
+      setError(err?.message ?? 'Προέκυψε σφάλμα κατά την ενημέρωση κατάστασης.')
+    } finally {
+      setRowBusyId(null)
     }
-
-    setCustomers((prev) => prev.filter((c) => c.id !== customer.id))
   }
 
-  // ---- delete ALL customers ----
   const handleDeleteAll = async () => {
-    if (customers.length === 0) return
-
-    const sure = window.confirm(
-      'ΠΡΟΣΟΧΗ: Θα διαγραφούν ΟΛΑ τα μέλη (customers). Η ενέργεια δεν αναιρείται. Θέλεις σίγουρα να συνεχίσεις;',
-    )
-    if (!sure) return
-
-    setLoading(true)
-    setError(null)
-
-    const { error } = await supabase.from('customers').delete().not('id', 'is', null)
-
-    if (error) {
-      console.error('[MemberList] delete all error:', error.message)
-      setError('Προέκυψε σφάλμα κατά τη μαζική διαγραφή μελών.')
-    } else {
-      setCustomers([])
+    if (
+      !window.confirm(
+        'ΠΡΟΕΙΔΟΠΟΙΗΣΗ: Θα διαγραφούν ΟΛΑ τα μέλη. Η ενέργεια δεν μπορεί να αναιρεθεί. Συνέχεια;',
+      )
+    ) {
+      return
     }
 
-    setLoading(false)
+    setRowBusyId('all')
+    setError(null)
+
+    try {
+      const { error } = await supabase.from('customers').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+      // το neq είναι για να περάσει από τον supabase client (ουσιαστικά διαγράφει όλα)
+
+      if (error) {
+        console.error('[MemberList] delete all error:', error.message)
+        throw new Error('Προέκυψε σφάλμα κατά τη μαζική διαγραφή.')
+      }
+
+      await loadCustomers()
+    } catch (err: any) {
+      setError(err?.message ?? 'Προέκυψε σφάλμα κατά τη μαζική διαγραφή.')
+    } finally {
+      setRowBusyId(null)
+    }
   }
 
-  const isRowBusy = (id: string) => rowActionId === id
+  const isRowBusy = (id: string) => rowBusyId === id
+
+  // -------- RENDER --------
 
   return (
     <>
@@ -315,136 +341,146 @@ const MemberList: React.FC = () => {
         <CCol xs={12}>
           <CCard className="mb-4">
             <CCardHeader className="d-flex justify-content-between align-items-center">
-              <strong>Λίστα Μελών</strong>
+              <div>
+                <strong>Λίστα Μελών</strong>
+                <div className="small text-muted">
+                  Σύνολο: {customers.length} μέλη
+                </div>
+              </div>
+
               <div className="d-flex gap-2">
-                <CButton
-                  color="danger"
-                  variant="outline"
-                  size="sm"
-                  disabled={customers.length === 0 || loading}
-                  onClick={handleDeleteAll}
-                >
+                <CButton color="danger" variant="outline" size="sm" onClick={handleDeleteAll}>
                   Διαγραφή όλων
                 </CButton>
-                <CButton color="primary" size="sm" onClick={handleOpenModal}>
+                <CButton color="primary" size="sm" onClick={openAddModal}>
                   + Προσθήκη μέλους
                 </CButton>
               </div>
             </CCardHeader>
-            <CCardBody>
-              {/* Filters */}
-              <CRow className="mb-3 g-2">
-                <CCol md={4}>
-                  <CFormLabel>Αναζήτηση</CFormLabel>
-                  <CFormInput
-                    placeholder="Όνομα, email ή τηλέφωνο..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </CCol>
-                <CCol md={3}>
-                  <CFormLabel>Κατάσταση</CFormLabel>
-                  <CFormSelect
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as any)}
-                  >
-                    <option value="all">Όλες</option>
-                    {statusOptions.map((s) => (
-                      <option key={s} value={s}>
-                        {statusLabel(s)}
-                      </option>
-                    ))}
-                  </CFormSelect>
-                </CCol>
-                <CCol md={3}>
-                  <CFormLabel>Ταξινόμηση</CFormLabel>
-                  <CFormSelect
-                    value={sortOption}
-                    onChange={(e) => setSortOption(e.target.value as any)}
-                  >
-                    <option value="recent">Πιο πρόσφατα</option>
-                    <option value="oldest">Πιο παλιά</option>
-                    <option value="name_asc">Αλφαβητικά (όνομα)</option>
-                  </CFormSelect>
-                </CCol>
-                <CCol
-                  md={2}
-                  className="d-flex align-items-end justify-content-end mt-3 mt-md-0"
-                >
-                  <CButton color="secondary" variant="outline" size="sm" onClick={loadCustomers}>
-                    Ανανέωση
-                  </CButton>
-                </CCol>
-              </CRow>
 
+            <CCardBody>
               {error && (
                 <div className="text-danger mb-2" style={{ fontSize: '0.875rem' }}>
                   {error}
                 </div>
               )}
 
+              <CRow className="mb-3 g-2">
+                <CCol md={6}>
+                  <CFormInput
+                    placeholder="Όνομα, email, τηλέφωνο ή τμήμα..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </CCol>
+                <CCol md={3}>
+                  <CFormSelect
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as any)}
+                  >
+                    <option value="Όλες">Όλες οι καταστάσεις</option>
+                    <option value="Ενεργός">Ενεργά μέλη</option>
+                    <option value="Ανενεργός">Ανενεργά μέλη</option>
+                  </CFormSelect>
+                </CCol>
+              </CRow>
+
               {loading ? (
-                <div className="text-center py-5">
+                <div className="text-center py-4">
                   <CSpinner />
                 </div>
               ) : (
                 <CTable hover responsive align="middle" className="mb-0">
                   <CTableHead>
                     <CTableRow>
-                      <CTableDataCell>Όνομα</CTableDataCell>
-                      <CTableDataCell>Email</CTableDataCell>
-                      <CTableDataCell>Τηλέφωνο</CTableDataCell>
+                      <CTableDataCell>Μέλος</CTableDataCell>
+                      <CTableDataCell>Επικοινωνία</CTableDataCell>
+                      <CTableDataCell>Τμήμα</CTableDataCell>
                       <CTableDataCell>Κατάσταση</CTableDataCell>
-                      <CTableDataCell>Πηγή</CTableDataCell>
-                      <CTableDataCell>Ημ/νία δημιουργίας</CTableDataCell>
-                      <CTableDataCell>Ενέργειες</CTableDataCell>
+                      <CTableDataCell>Σημειώσεις</CTableDataCell>
+                      <CTableDataCell className="text-end">Ενέργειες</CTableDataCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {filteredCustomers.length === 0 ? (
                       <CTableRow>
-                        <CTableDataCell colSpan={7} className="text-center py-4">
+                        <CTableDataCell colSpan={6} className="text-center py-4">
                           Δεν βρέθηκαν μέλη.
                         </CTableDataCell>
                       </CTableRow>
                     ) : (
                       filteredCustomers.map((c) => (
                         <CTableRow key={c.id}>
-                          <CTableDataCell>{c.full_name ?? '-'}</CTableDataCell>
-                          <CTableDataCell>{c.email ?? '-'}</CTableDataCell>
-                          <CTableDataCell>{c.phone ?? '-'}</CTableDataCell>
-                          <CTableDataCell>{statusLabel(c.status)}</CTableDataCell>
-                          <CTableDataCell>{c.source ?? '-'}</CTableDataCell>
-                          <CTableDataCell>
-                            {c.created_at
-                              ? new Date(c.created_at).toLocaleDateString('el-GR')
-                              : '-'}
+                          <CTableDataCell className="fw-semibold">
+                            {c.full_name || '-'}
+                            <div className="small text-muted">
+                              Ημ/νία γέννησης:{' '}
+                              {c.date_of_birth
+                                ? new Date(c.date_of_birth).toLocaleDateString('el-GR')
+                                : '-'}
+                            </div>
                           </CTableDataCell>
                           <CTableDataCell>
-                            <div className="d-flex gap-2">
+                            <div className="small text-muted">
+                              {c.email || '-'}
+                              {c.phone ? ` · ${c.phone}` : ''}
+                            </div>
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {c.class?.title ? (
+                              <>
+                                {c.class.title}
+                                {c.class.level ? (
+                                  <span className="text-muted"> — {c.class.level}</span>
+                                ) : null}
+                              </>
+                            ) : (
+                              <span className="text-muted small">Χωρίς τμήμα</span>
+                            )}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {c.status === 'Ενεργός' ? (
+                              <CBadge color="success">Ενεργός</CBadge>
+                            ) : (
+                              <CBadge color="secondary">
+                                {c.status || 'Άγνωστο'}
+                              </CBadge>
+                            )}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <div className="small text-muted">
+                              {c.source && <div>Πηγή: {c.source}</div>}
+                              {c.notes}
+                            </div>
+                          </CTableDataCell>
+                          <CTableDataCell className="text-end">
+                            <div className="d-flex justify-content-end gap-2">
                               <CButton
                                 size="sm"
+                                color="info"
                                 variant="outline"
-                                color={c.status === 'inactive' ? 'success' : 'secondary'}
                                 disabled={isRowBusy(c.id)}
-                                onClick={() => handleToggleStatus(c)}
+                                onClick={() => openEditModal(c)}
                               >
-                                {isRowBusy(c.id) ? (
-                                  <CSpinner size="sm" />
-                                ) : c.status === 'inactive' ? (
-                                  'Ενεργοποίηση'
-                                ) : (
-                                  'Απενεργοποίηση'
-                                )}
+                                Επεξεργασία
                               </CButton>
                               <CButton
                                 size="sm"
+                                color={c.status === 'Ενεργός' ? 'warning' : 'success'}
                                 variant="outline"
-                                color="danger"
                                 disabled={isRowBusy(c.id)}
-                                onClick={() => handleDeleteCustomer(c)}
+                                onClick={() => handleToggleActive(c)}
                               >
-                                {isRowBusy(c.id) ? <CSpinner size="sm" /> : 'Διαγραφή'}
+                                {c.status === 'Ενεργός' ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
+                              </CButton>
+                              <CButton
+                                size="sm"
+                                color="danger"
+                                variant="outline"
+                                disabled={isRowBusy(c.id)}
+                                onClick={() => handleDelete(c)}
+                              >
+                                Διαγραφή
                               </CButton>
                             </div>
                           </CTableDataCell>
@@ -459,89 +495,94 @@ const MemberList: React.FC = () => {
         </CCol>
       </CRow>
 
-      {/* Modal Προσθήκης */}
-      <CModal visible={showModal} onClose={handleCloseModal}>
-        <CModalHeader closeButton>
-          <CModalTitle>Προσθήκη μέλους</CModalTitle>
-        </CModalHeader>
-        <CModalBody>
-          <CForm>
+      {/* Modal add / edit */}
+      <CModal visible={modalOpen} onClose={() => setModalOpen(false)} size="lg">
+        <CForm onSubmit={handleSave}>
+          <CModalHeader>
+            <CModalTitle>{editingCustomer ? 'Επεξεργασία μέλους' : 'Προσθήκη μέλους'}</CModalTitle>
+          </CModalHeader>
+          <CModalBody>
             <CRow className="g-3">
               <CCol md={6}>
                 <CFormLabel>Ονοματεπώνυμο *</CFormLabel>
                 <CFormInput
-                  value={form.full_name}
-                  onChange={(e) => handleChange('full_name', e.target.value)}
-                  invalid={!!formErrors.full_name}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
                 />
-                {formErrors.full_name && (
-                  <div className="invalid-feedback d-block">{formErrors.full_name}</div>
-                )}
               </CCol>
               <CCol md={6}>
                 <CFormLabel>Email</CFormLabel>
                 <CFormInput
                   type="email"
-                  value={form.email}
-                  onChange={(e) => handleChange('email', e.target.value)}
-                  invalid={!!formErrors.email}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
-                {formErrors.email && (
-                  <div className="invalid-feedback d-block">{formErrors.email}</div>
-                )}
               </CCol>
-              <CCol md={6}>
+
+              <CCol md={4}>
                 <CFormLabel>Τηλέφωνο</CFormLabel>
-                <CFormInput
-                  value={form.phone}
-                  onChange={(e) => handleChange('phone', e.target.value)}
-                />
+                <CFormInput value={phone} onChange={(e) => setPhone(e.target.value)} />
               </CCol>
-              <CCol md={6}>
-                <CFormLabel>Ημερ. γέννησης</CFormLabel>
+              <CCol md={4}>
+                <CFormLabel>Ημ/νία γέννησης</CFormLabel>
                 <CFormInput
                   type="date"
-                  value={form.date_of_birth}
-                  onChange={(e) => handleChange('date_of_birth', e.target.value)}
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
                 />
               </CCol>
-              <CCol md={6}>
+              <CCol md={4}>
                 <CFormLabel>Κατάσταση</CFormLabel>
-                <CFormSelect
-                  value={form.status}
-                  onChange={(e) => handleChange('status', e.target.value)}
-                >
-                  <option value="active">Ενεργός</option>
-                  <option value="inactive">Ανενεργός</option>
+                <CFormSelect value={status} onChange={(e) => setStatus(e.target.value)}>
+                  {statusOptions.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
                 </CFormSelect>
               </CCol>
+
               <CCol md={6}>
-                <CFormLabel>Πηγή</CFormLabel>
-                <CFormInput
-                  placeholder="π.χ. Facebook, referral..."
-                  value={form.source}
-                  onChange={(e) => handleChange('source', e.target.value)}
-                />
+                <CFormLabel>Τμήμα (προαιρετικό)</CFormLabel>
+                <CFormSelect
+                  value={primaryClassId}
+                  onChange={(e) => setPrimaryClassId(e.target.value)}
+                >
+                  <option value="">Χωρίς τμήμα</option>
+                  {classes.map((cl) => (
+                    <option key={cl.id} value={cl.id}>
+                      {cl.title}
+                      {cl.level ? ` — ${cl.level}` : ''}
+                    </option>
+                  ))}
+                </CFormSelect>
               </CCol>
-              <CCol xs={12}>
-                <CFormLabel>Σημειώσεις</CFormLabel>
-                <CFormTextarea
-                  rows={3}
-                  value={form.notes}
-                  onChange={(e) => handleChange('notes', e.target.value)}
-                />
+
+              <CCol md={6}>
+                <CFormLabel>Πηγή (π.χ. Facebook, referral...)</CFormLabel>
+                <CFormInput value={source} onChange={(e) => setSource(e.target.value)} />
               </CCol>
+
+             <CCol xs={12}>
+              <CFormLabel>Σημειώσεις</CFormLabel>
+              <CFormTextarea
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </CCol>
             </CRow>
-          </CForm>
-        </CModalBody>
-        <CModalFooter>
-          <CButton color="secondary" variant="outline" onClick={handleCloseModal} disabled={saving}>
-            Ακύρωση
-          </CButton>
-          <CButton color="primary" onClick={handleSave} disabled={saving}>
-            {saving ? <CSpinner size="sm" /> : 'Αποθήκευση'}
-          </CButton>
-        </CModalFooter>
+          </CModalBody>
+          <CModalFooter>
+            <CButton color="secondary" variant="ghost" onClick={() => setModalOpen(false)}>
+              Ακύρωση
+            </CButton>
+            <CButton color="primary" type="submit" disabled={!!rowBusyId}>
+              Αποθήκευση
+            </CButton>
+          </CModalFooter>
+        </CForm>
       </CModal>
     </>
   )

@@ -20,12 +20,9 @@ const _nav = [
   // DASHBOARD
   {
     component: CNavItem,
-    name: 'Dashboard',
+    name: 'Αρχική',
     to: 'dashboard', // <-- RELATIVE (not "/dashboard")
-    badge: {
-      color: 'info',
-      text: 'NEW',
-    },
+    
     
   },
 
@@ -90,8 +87,14 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: 'Τμήματα / Μαθήματα',
+    to: 'classescourses',
+    
+  },
+  {
+    component: CNavItem,
     name: 'Χορηγοί / Banners',
-    to: 'sponsorsbanners', // <-- FIXED typo: was "/ponsorsbanners"
+    to: 'sponsorsbanners', 
     
   },
 ]

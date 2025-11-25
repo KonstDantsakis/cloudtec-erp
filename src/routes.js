@@ -9,6 +9,7 @@ const Reports = React.lazy(() => import('./views/financial/Reports'))
 const Presence = React.lazy(() => import('./views/organization/Presence'))
 const Announcements = React.lazy(() => import('./views/organization/Announcements'))
 const SponsorsBanners = React.lazy(() => import('./views/organization/SponsorsBanners'))
+const Classes = React.lazy(() => import('./views/organization/Classes'))
 
 
 
@@ -23,7 +24,8 @@ const routes = [
   { path: 'reports', name: 'Reports', element: Reports },
   { path: 'presence', name: 'Presence', element: Presence },
   { path: 'announcements', name: 'Announcements', element: Announcements },
-  { path: 'sponsorsBanners', name: 'SponsorsBanners', element: SponsorsBanners },
+  { path: 'sponsorsbanners', name: 'SponsorsBanners', element: SponsorsBanners },
+  { path: 'classescourses', name: 'Classes', element: Classes },
 
 ]
 
