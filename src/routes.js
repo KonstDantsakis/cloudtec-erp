@@ -11,6 +11,9 @@ const Announcements = React.lazy(() => import('./views/organization/Announcement
 const SponsorsBanners = React.lazy(() => import('./views/organization/SponsorsBanners'))
 const Classes = React.lazy(() => import('./views/organization/Classes'))
 
+const UserLayout = React.lazy(() => import('./layout/UserLayout.tsx'))
+
+
 
 
 
@@ -26,6 +29,8 @@ const routes = [
   { path: 'announcements', name: 'Announcements', element: Announcements },
   { path: 'sponsorsbanners', name: 'SponsorsBanners', element: SponsorsBanners },
   { path: 'classescourses', name: 'Classes', element: Classes },
+
+    { path: 'userdashboard', name: 'UserLayout', element: UserLayout },
 
 ]
 

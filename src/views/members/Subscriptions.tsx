@@ -129,7 +129,7 @@ const loadPdfFonts = async (doc: jsPDF) => {
 /** ---------------------------------------------------------- **/
 
 const Subscriptions: React.FC = () => {
-  const { profile } = useAuth()
+  const { role } = useAuth()
 
   const [incomes, setIncomes] = useState<IncomeRow[]>([])
   const [customers, setCustomers] = useState<MemberOption[]>([])
@@ -423,7 +423,7 @@ const Subscriptions: React.FC = () => {
       status: form.status.trim() || null,
       paid_at: form.paid_at ? new Date(form.paid_at).toISOString() : null,
       notes: form.notes.trim() || null,
-      created_by: editingIncome?.created_by ?? profile?.id ?? null,
+      created_by: editingIncome?.created_by ?? role ?? null,
     }
 
     if (editingIncome) {

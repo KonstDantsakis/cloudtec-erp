@@ -1,194 +1,138 @@
-// src/views/pages/register/Register.tsx
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import {
-  CAlert,
-  CButton,
-  CCard,
-  CCardBody,
-  CCol,
-  CContainer,
-  CForm,
-  CFormInput,
-  CInputGroup,
-  CInputGroupText,
-  CRow,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilLockLocked, cilUser } from '@coreui/icons'
-import { supabase } from '@/lib/supabaseClient'
+// src/pages/auth/Register.tsx
+import React, { useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 
-const Register: React.FC = () => {
-  const navigate = useNavigate()
+const RegisterPage: React.FC = () => {
+  const [fullName, setFullName] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
 
-  const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault()
+  setLoading(true)
+  setError(null)
+  setSuccess(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setSuccess(null)
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        role: 'user',
+        full_name: fullName,
+      },
+    },
+  })
 
-    // basic client-side checks
-    if (!fullName.trim()) return setError('Please enter your name.')
-    if (!email.trim()) return setError('Please enter an email.')
-    if (password.length < 6) return setError('Password must be at least 6 characters.')
-    if (password !== confirm) return setError('Passwords do not match.')
-
-    setLoading(true)
-    try {
-      // include full_name in user metadata so our trigger can read it
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-        options: {
-          data: { full_name: fullName.trim() },
-          emailRedirectTo: `${window.location.origin}/#/login`, // for magic link confirmation (HashRouter)
-        },
-      })
-
-      if (error) {
-        setError(error.message)
-        setLoading(false)
-        return
-      }
-
-      // If your project requires email confirmation, Supabase won't start a session now.
-      // We'll show a success message asking the user to check their email.
-      if (!data.session) {
-        setSuccess('Account created. Please check your email to confirm your address.')
-        setLoading(false)
-        return
-      }
-
-      // If email confirmation is OFF and we have a session, you *may* upsert profile here
-      // in case you didn't add the on_auth_user_created trigger.
-      // Comment out if you rely on the trigger exclusively.
-      try {
-        await supabase.from('profiles').upsert({
-          id: data.user!.id,
-          full_name: fullName.trim(),
-          // role defaults to 'user' via DB if you set it; otherwise omit or set here
-        })
-      } catch {
-        // ignore – RLS or trigger will handle it
-      }
-
-      setSuccess('Account created.')
-      // Redirect to home (which will send user to /app or /admin based on role)
-      navigate('/', { replace: true })
-    } catch (err: any) {
-      setError(err?.message ?? 'Registration failed.')
-    } finally {
-      setLoading(false)
-    }
+  if (error) {
+    console.error('Supabase signUp error', error)
+    setError(error.message)
+    setLoading(false)
+    return
   }
 
-  return (
-    <div className="bg-body-tertiary min-vh-100 d-flex flex-row align-items-center">
-      <CContainer>
-        <CRow className="justify-content-center">
-          <CCol md={9} lg={7} xl={6}>
-            <CCard className="mx-4">
-              <CCardBody className="p-4">
-                <CForm onSubmit={handleSubmit}>
-                  <h1>Register</h1>
-                  <p className="text-body-secondary">Create your account</p>
+  const user = data.user
+  if (!user) {
+    setError('Κάτι πήγε στραβά, προσπαθήστε ξανά.')
+    setLoading(false)
+    return
+  }
 
-                  {error && (
-                    <CAlert color="danger" className="mb-3">
-                      {error}
-                    </CAlert>
-                  )}
-                  {success && (
-                    <CAlert color="success" className="mb-3">
-                      {success}
-                    </CAlert>
-                  )}
+  const { error: insertError } = await supabase.from('customers').insert({
+    auth_user_id: user.id,
+    full_name: fullName,
+    email,
+    phone,
+    registration_status: 'pending',
+  })
 
-                  <CInputGroup className="mb-3">
-                    <CInputGroupText>
-                      <CIcon icon={cilUser} />
-                    </CInputGroupText>
-                    <CFormInput
-                      placeholder="Full name"
-                      autoComplete="name"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      required
-                    />
-                  </CInputGroup>
+  if (insertError) {
+    console.error(insertError)
+    setError(
+      'Η δημιουργία του λογαριασμού ολοκληρώθηκε, αλλά υπήρξε σφάλμα στην καταχώρηση των στοιχείων. Επικοινωνήστε με τον σύλλογο.',
+    )
+    setLoading(false)
+    return
+  }
 
-                  <CInputGroup className="mb-3">
-                    <CInputGroupText>@</CInputGroupText>
-                    <CFormInput
-                      type="email"
-                      placeholder="Email"
-                      autoComplete="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </CInputGroup>
-
-                  <CInputGroup className="mb-3">
-                    <CInputGroupText>
-                      <CIcon icon={cilLockLocked} />
-                    </CInputGroupText>
-                    <CFormInput
-                      type="password"
-                      placeholder="Password"
-                      autoComplete="new-password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                  </CInputGroup>
-
-                  <CInputGroup className="mb-4">
-                    <CInputGroupText>
-                      <CIcon icon={cilLockLocked} />
-                    </CInputGroupText>
-                    <CFormInput
-                      type="password"
-                      placeholder="Repeat password"
-                      autoComplete="new-password"
-                      value={confirm}
-                      onChange={(e) => setConfirm(e.target.value)}
-                      required
-                    />
-                  </CInputGroup>
-
-                  <div className="d-grid">
-                    <CButton color="success" type="submit" disabled={loading}>
-                      {loading ? 'Creating…' : 'Create Account'}
-                    </CButton>
-                  </div>
-
-                  {/* Optional: link back to login */}
-                  <div className="text-center mt-3">
-                    <button
-                      type="button"
-                      className="btn btn-link p-0"
-                      onClick={() => navigate('/login')}
-                    >
-                      Already have an account? Sign in
-                    </button>
-                  </div>
-                </CForm>
-              </CCardBody>
-            </CCard>
-          </CCol>
-        </CRow>
-      </CContainer>
-    </div>
+  setLoading(false)
+  setSuccess(
+    'Η αίτηση εγγραφής καταχωρήθηκε. Θα ενημερωθείτε όταν εγκριθεί από το ΔΣ.',
   )
+  setFullName('')
+  setPhone('')
+  setEmail('')
+  setPassword('')
 }
 
-export default Register
+
+  return (
+    <div className="container py-5">
+      <h1 className="mb-4">Εγγραφή Μέλους</h1>
+
+      <form onSubmit={handleSubmit} style={{ maxWidth: 480 }}>
+        <div className="mb-3">
+          <label className="form-label">Ονοματεπώνυμο</label>
+          <input
+            type="text"
+            className="form-control"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label">Τηλέφωνο</label>
+          <input
+            type="tel"
+            className="form-control"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label">Email</label>
+          <input
+            type="email"
+            className="form-control"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="mb-3">
+          <label className="form-label">Κωδικός πρόσβασης</label>
+          <input
+            type="password"
+            className="form-control"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+          />
+        </div>
+
+        {error && <div className="alert alert-danger">{error}</div>}
+        {success && <div className="alert alert-success">{success}</div>}
+
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={loading}
+        >
+          {loading ? 'Γίνεται εγγραφή…' : 'Υποβολή αίτησης'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default RegisterPage;

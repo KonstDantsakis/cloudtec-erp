@@ -28,34 +28,29 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setError(null)
-  setLoading(true)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
 
-  try {
-    const { error: signInError } = await signIn(email.trim(), password)
+    try {
+      const { error: signInError } = await signIn(email.trim(), password)
 
-    if (signInError) {
-      console.error('Login error:', signInError)
-      setError(signInError.message)
-      return
+      if (signInError) {
+        console.error('Login error:', signInError)
+        setError(signInError.message)
+        return
+      }
+
+      // ✅ user is set in AuthContext, guards will allow access
+      navigate('/', { replace: true })
+    } catch (err) {
+      console.error('Unexpected signIn error:', err)
+      setError('Something went wrong while logging in.')
+    } finally {
+      setLoading(false)
     }
-
-    // ✅ user is set in AuthContext, guards will allow access
-    navigate('/', { replace: true })
-  } catch (err) {
-    console.error('Unexpected signIn error:', err)
-    setError('Something went wrong while logging in.')
-  } finally {
-    setLoading(false)
   }
-}
-
-
-
-  
-
 
   return (
     <div className="bg-body-tertiary min-vh-100 d-flex flex-row align-items-center">
@@ -111,7 +106,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                           type="submit"
                           disabled={loading}
                         >
-
                           {loading ? 'Signing in…' : 'Login'}
                         </CButton>
                       </CCol>
@@ -120,6 +114,16 @@ const handleSubmit = async (e: React.FormEvent) => {
                           <CButton color="link" className="px-0">
                             Forgot password?
                           </CButton>
+                        </Link>
+                      </CCol>
+                    </CRow>
+
+                    {/* 🔹 Link για εγγραφή */}
+                    <CRow className="mt-3">
+                      <CCol xs={12} className="text-center">
+                        <span>Δεν έχεις λογαριασμό; </span>
+                        <Link to="/register">
+                          Κάνε εγγραφή
                         </Link>
                       </CCol>
                     </CRow>

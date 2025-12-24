@@ -1,141 +1,114 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+// src/context/AuthContext.tsx
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import type { AuthError, User } from '@supabase/supabase-js'
 
-type Role = 'admin' | 'user'
-type Profile = { id: string; full_name?: string | null; role: Role | null }
+type AppUserRole = 'admin' | 'user'
 
-type AuthState = {
+type AuthContextType = {
+  user: User | null
+  role: AppUserRole | null
   loading: boolean
-  user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'] | null
-  profile: Profile | null
-  signIn: (email: string, password: string) => Promise<{ error?: Error }>
+  signIn: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthState | undefined>(undefined)
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<AuthState['user']>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
+const extractRole = (u: User | null): AppUserRole | null => {
+  if (!u) return null
+  const metadata = (u.user_metadata ?? {}) as { role?: string }
 
-  const loadProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, role')
-      .eq('id', userId)
-      .single()
+  // Αν το metadata έχει role === 'admin', είναι admin.
+  // Οτιδήποτε άλλο (ή undefined) το θεωρούμε user.
+   if (metadata.role === 'admin') return 'admin'
+  if (metadata.role === 'user') return 'user'
+  return null   
+}
 
-    if (error) {
-      console.error('[AuthContext] Error loading profile:', error.message)
-      setProfile(null)
-      return
-    }
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const [user, setUser] = useState<User | null>(null)
+  const [role, setRole] = useState<AppUserRole | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
 
-    if (!data) {
-      setProfile(null)
-      return
-    }
-
-    const safeProfile: Profile = {
-      id: data.id,
-      full_name: data.full_name,
-      role: (data.role as Role | null) ?? null,
-    }
-
-    console.log('[AuthContext] loaded profile:', safeProfile)
-    setProfile(safeProfile)
-  }
-
+  // Αρχικό load user από supabase
   useEffect(() => {
-    let cancelled = false
+    const init = async () => {
+      setLoading(true)
+      const { data, error } = await supabase.auth.getUser()
 
-    const syncFromSession = async (
-      session: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'],
-    ) => {
-      if (cancelled) return
-
-      if (session?.user) {
-        setUser(session.user)
-        await loadProfile(session.user.id)
+      if (!error && data.user) {
+        setUser(data.user)
+        setRole(extractRole(data.user))
       } else {
         setUser(null)
-        setProfile(null)
+        setRole(null)
       }
+
+      setLoading(false)
     }
 
-    const init = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-        await syncFromSession(session)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
+    void init()
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      // This keeps state in sync for SIGNED_IN / SIGNED_OUT / TOKEN_REFRESHED, etc.
-      syncFromSession(session)
-    })
-
-    init()
+    // Listener για αλλαγές login/logout
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        const u = session?.user ?? null
+        setUser(u)
+        setRole(extractRole(u))
+      },
+    )
 
     return () => {
-      cancelled = true
-      sub?.subscription.unsubscribe()
+      authListener?.subscription.unsubscribe()
     }
   }, [])
 
-  const signIn: AuthState['signIn'] = async (email, password) => {
-    console.log('[AuthContext] signIn called with:', email)
+  const signIn = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      console.log('[AuthContext] signIn result:', { data, error })
-
-      if (error) {
-        console.error('[AuthContext] signIn error:', error.message)
-        return { error }
-      }
-
-      // We don't manually touch user/profile here:
-      // getSession + onAuthStateChange will handle it.
-      return {}
-    } catch (e) {
-      console.error('[AuthContext] signIn threw unexpectedly:', e)
-      return { error: e as Error }
+    if (!error && data.user) {
+      setUser(data.user)
+      setRole(extractRole(data.user))
     }
+
+    return { error }
   }
 
-  const signOut: AuthState['signOut'] = async () => {
-    console.log('🟡 [AuthContext] signOut called')
-
-    try {
-      const { error } = await supabase.auth.signOut({ scope: 'local' })
-      if (error) {
-        console.error('[AuthContext] supabase signOut error:', error.message)
-      }
-      // onAuthStateChange will sync user/profile to null
-    } catch (e) {
-      console.error('[AuthContext] signOut threw:', e)
-    }
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setRole(null)
   }
 
-  return (
-    <AuthContext.Provider value={{ loading, user, profile, signIn, signOut }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  const value: AuthContextType = {
+    user,
+    role,
+    loading,
+    signIn,
+    signOut,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-export function useAuth() {
+export const useAuth = (): AuthContextType => {
   const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
+  if (!ctx) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
   return ctx
 }

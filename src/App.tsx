@@ -11,13 +11,17 @@ import { useAuth } from '@/context/AuthContext'
 // Containers
 const DefaultLayout = React.lazy(() => import('./layout/DefaultLayout'))
 
+// 🔹 ΝΕΟ: layout για τους απλούς χρήστες (μέλη)
+const UserLayout = React.lazy(() => import('./layout/UserLayout'))
+
+
 // Pages
 const Login = React.lazy(() => import('./views/pages/login/Login'))
 const Register = React.lazy(() => import('./views/pages/register/Register'))
 const Page404 = React.lazy(() => import('./views/pages/page404/Page404'))
 const Page500 = React.lazy(() => import('./views/pages/page500/Page500'))
 
-const Unauthorized = () => (
+const Unauthorized: React.FC = () => (
   <div className="container py-5">
     <h4>Unauthorized</h4>
     <p>You don’t have permission to view this page.</p>
@@ -45,45 +49,47 @@ function ProtectedRoute() {
 }
 
 function RoleRoute({ allow }: { allow: Array<'admin' | 'user'> }) {
-  const { loading, profile, user } = useAuth()
-  console.log('[RoleRoute] loading:', loading, 'user:', !!user, 'profile:', profile)
+  const { loading, role, user } = useAuth()
+  console.log('[RoleRoute] loading:', loading, 'user:', !!user, 'role:', role)
 
   if (loading) return <FullScreenSpinner />
 
   if (!user) return <Navigate to="/login" replace />
 
-  // Don't hard-block if profile hasn't loaded yet
-  if (!profile) return <Outlet />
+  // Μην μπλοκάρεις σκληρά αν το profile δεν έχει φορτώσει ακόμα
+  if (!role) return <Outlet />
 
-  // Ensure profile.role is not null before checking allowed roles
-  return profile.role != null && allow.includes(profile.role)
+  // Έλεγχος role
+  return role != null && allow.includes(role)
     ? <Outlet />
     : <Navigate to="/unauthorized" replace />
 }
 
 function HomeRedirect() {
-  const { loading, profile, user } = useAuth()
-  console.log('[HomeRedirect] loading:', loading, 'user:', !!user, 'profile:', profile)
+  const { loading, role, user } = useAuth()
+  console.log('[HomeRedirect] loading:', loading, 'user:', !!user, 'role:', role)
 
   if (loading) return <FullScreenSpinner />
 
   if (!user) return <Navigate to="/login" replace />
 
-  if (!profile) {
+  if (!role) {
+    // Αν (πολύ σπάνια) δεν έχει φορτώσει ακόμη profile, στείλτον προσωρινά admin-dashboard
     return <Navigate to="/app/dashboard" replace />
   }
 
-  return profile.role === 'admin'
+  // 🔹 Admin → /admin/dashboard
+  // 🔹 User  → /app/dashboard
+  return role === 'admin'
     ? <Navigate to="/admin/dashboard" replace />
-    : <Navigate to="/app/dashboard" replace />
+    : <Navigate to="/app/userdashboard" replace />
 }
-
 
 // ─────────────────────────────
 // App component
 // ─────────────────────────────
 
-const App = () => {
+const App: React.FC = () => {
   const { isColorModeSet, setColorMode } = useColorModes(
     'coreui-free-react-admin-template-theme',
   )
@@ -114,14 +120,14 @@ const App = () => {
 
           {/* Protected */}
           <Route element={<ProtectedRoute />}>
-            {/* Admin area */}
+            {/* Admin area – admin panel όπως το έχουμε χτίσει */}
             <Route element={<RoleRoute allow={['admin']} />}>
               <Route path="/admin/*" element={<DefaultLayout />} />
             </Route>
 
-            {/* User area */}
-            <Route element={<RoleRoute allow={['user', 'admin']} />}>
-              <Route path="/app/*" element={<DefaultLayout />} />
+            {/* User area – διαφορετικό layout για τα μέλη */}
+            <Route element={<RoleRoute allow={['user']} />}>
+              <Route path="/app/*" element={<UserLayout />} />
             </Route>
 
             {/* Home redirect */}
