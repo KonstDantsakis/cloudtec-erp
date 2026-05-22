@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../../services/api'
+import { useLocale } from '../../context/LocaleContext'
+import { labels } from '../../locales/labels'
 
 interface ReportSummary {
   month: string
@@ -12,6 +14,8 @@ interface ReportSummary {
 
 export function ReportsPage() {
   const { token } = useAuth()
+  const { locale } = useLocale()
+  const l = labels[locale]
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7))
   const [summary, setSummary] = useState<ReportSummary | null>(null)
 
@@ -33,17 +37,17 @@ export function ReportsPage() {
 
   return (
     <section>
-      <h1>Reports</h1>
+      <h1>{l.reportsTitle}</h1>
       <div className="toolbar">
         <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-        <button onClick={onExport}>Export CSV</button>
+        <button onClick={onExport}>{l.exportCsv}</button>
       </div>
       <div className="grid grid-3">
-        <article className="card-stat"><p>Income</p><h3>€{summary?.monthlyIncome ?? 0}</h3></article>
-        <article className="card-stat"><p>Expenses</p><h3>€{summary?.monthlyExpenses ?? 0}</h3></article>
-        <article className="card-stat"><p>Profit estimate</p><h3>€{summary?.profitEstimate ?? 0}</h3></article>
+        <article className="card-stat"><p>{l.income}</p><h3>€{summary?.monthlyIncome ?? 0}</h3></article>
+        <article className="card-stat"><p>{l.expenses}</p><h3>€{summary?.monthlyExpenses ?? 0}</h3></article>
+        <article className="card-stat"><p>{l.profitEstimate}</p><h3>€{summary?.profitEstimate ?? 0}</h3></article>
       </div>
-      <h3>Sales per customer</h3>
+      <h3>{l.salesPerCustomer}</h3>
       <ul>{summary?.salesPerCustomer?.map((row) => <li key={row.customer}>{row.customer}: €{row.total}</li>)}</ul>
     </section>
   )

@@ -23,7 +23,7 @@ import {
   CTableHead,
   CTableRow,
 } from '@coreui/react'
-import { supabase } from '@/lib/supabaseClient'
+import { callEdge } from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
 
 type Expense = {
@@ -95,17 +95,14 @@ const Expenses: React.FC = () => {
     setLoading(true)
     setError(null)
 
-    const { data, error } = await supabase
-      .from('expenses')
-      .select('*')
-      .order('paid_at', { ascending: false })
+    const { data, error } = await callEdge<Expense[]>('get-expenses')
 
     if (error) {
-      console.error('[Expenses] Error loading expenses:', error.message)
+      console.error('[Expenses] Error loading expenses:', error)
       setError('Προέκυψε σφάλμα κατά τη φόρτωση των εξόδων.')
       setExpenses([])
     } else {
-      setExpenses((data ?? []) as Expense[])
+      setExpenses(data ?? [])
     }
     setLoading(false)
   }
@@ -243,15 +240,12 @@ const Expenses: React.FC = () => {
     }
 
     if (editingExpense) {
-      const { error } = await supabase
-        .from('expenses')
-        .update(payload)
-        .eq('id', editingExpense.id)
+      const { error } = await callEdge('update-expense', { id: editingExpense.id, ...payload })
 
       setSaving(false)
 
       if (error) {
-        console.error('[Expenses] update expense error:', error.message)
+        console.error('[Expenses] update expense error:', error)
         setError('Προέκυψε σφάλμα κατά την ενημέρωση του εξόδου.')
         return
       }
@@ -262,12 +256,12 @@ const Expenses: React.FC = () => {
       return
     }
 
-    const { error } = await supabase.from('expenses').insert([payload])
+    const { error } = await callEdge('create-expense', payload)
 
     setSaving(false)
 
     if (error) {
-      console.error('[Expenses] insert expense error:', error.message)
+      console.error('[Expenses] insert expense error:', error)
       setError('Προέκυψε σφάλμα κατά την αποθήκευση του εξόδου.')
       return
     }
@@ -285,12 +279,12 @@ const Expenses: React.FC = () => {
     setRowActionId(expense.id)
     setError(null)
 
-    const { error } = await supabase.from('expenses').delete().eq('id', expense.id)
+    const { error } = await callEdge('delete-expense', { id: expense.id })
 
     setRowActionId(null)
 
     if (error) {
-      console.error('[Expenses] delete expense error:', error.message)
+      console.error('[Expenses] delete expense error:', error)
       setError('Προέκυψε σφάλμα κατά τη διαγραφή του εξόδου.')
       return
     }

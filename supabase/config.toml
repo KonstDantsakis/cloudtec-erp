@@ -1,0 +1,152 @@
+[functions.list-admins]
+verify_jwt = false
+
+[functions.create-admin]
+verify_jwt = false
+
+[functions.delete-admin]
+verify_jwt = false
+
+[functions.get-classes]
+verify_jwt = false
+
+[functions.create-class]
+verify_jwt = false
+
+[functions.update-class]
+verify_jwt = false
+
+[functions.delete-class]
+verify_jwt = false
+
+[functions.toggle-class-active]
+verify_jwt = false
+
+[functions.get-attendance]
+verify_jwt = false
+
+[functions.create-attendance]
+verify_jwt = false
+
+[functions.update-attendance]
+verify_jwt = false
+
+[functions.get-sponsors]
+verify_jwt = false
+
+[functions.create-sponsor]
+verify_jwt = false
+
+[functions.update-sponsor]
+verify_jwt = false
+
+[functions.delete-sponsor]
+verify_jwt = false
+
+[functions.get-incomes]
+verify_jwt = false
+
+[functions.create-income]
+verify_jwt = false
+
+[functions.update-income]
+verify_jwt = false
+
+[functions.delete-income]
+verify_jwt = false
+
+[functions.get-announcements]
+verify_jwt = false
+
+[functions.create-announcement]
+verify_jwt = false
+
+[functions.update-announcement]
+verify_jwt = false
+
+[functions.delete-announcement]
+verify_jwt = false
+
+[functions.get-expenses]
+verify_jwt = false
+
+[functions.create-expense]
+verify_jwt = false
+
+[functions.update-expense]
+verify_jwt = false
+
+[functions.delete-expense]
+verify_jwt = false
+
+[functions.register-member]
+verify_jwt = false
+
+[functions.get-customers]
+verify_jwt = false
+
+[functions.create-customer]
+verify_jwt = false
+
+[functions.update-customer]
+verify_jwt = false
+
+[functions.delete-customer]
+verify_jwt = false
+
+[functions.get-products]
+verify_jwt = false
+
+[functions.create-product]
+verify_jwt = false
+
+[functions.update-product]
+verify_jwt = false
+
+[functions.delete-product]
+verify_jwt = false
+
+[functions.get-invoices]
+verify_jwt = false
+
+[functions.get-invoice]
+verify_jwt = false
+
+[functions.create-invoice]
+verify_jwt = false
+
+[functions.get-company-expenses]
+verify_jwt = false
+
+[functions.create-company-expense]
+verify_jwt = false
+
+[functions.update-company-expense]
+verify_jwt = false
+
+[functions.delete-company-expense]
+verify_jwt = false
+
+[functions.get-tasks]
+verify_jwt = false
+
+[functions.create-task]
+verify_jwt = false
+
+[functions.update-task]
+verify_jwt = false
+
+[functions.delete-task]
+verify_jwt = false
+
+[functions.get-reports-summary]
+verify_jwt = false
+
+[functions.export-invoices-csv]
+verify_jwt = false
+
+[functions.get-dashboard]
+verify_jwt = false
+
+[functions.create-company]
+verify_jwt = false

@@ -1,44 +1,77 @@
 import { DashboardMetrics, Customer, Product, Invoice, Expense, Task, InvoiceItemInput } from '../types/models'
+import { supabase } from '@/lib/supabaseClient'
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api'
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
 
-async function request<T>(path: string, token: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
+// Used by React components — auto-reads session token, returns { data, error }
+export async function callEdge<T = unknown>(
+  functionName: string,
+  body: Record<string, unknown> = {},
+): Promise<{ data: T | null; error: string | null }> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }))
+    return { data: null, error: (err as any).error ?? res.statusText }
+  }
+
+  return { data: (await res.json()) as T, error: null }
+}
+
+// Used by api object below — requires explicit token, throws on error
+async function edge<T>(functionName: string, token: string, body: Record<string, unknown> = {}): Promise<T> {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${functionName}`, {
+    method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      ...(init?.headers ?? {}),
     },
+    body: JSON.stringify(body),
   })
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}))
-    throw new Error(payload.message ?? 'Request failed')
+  if (!res.ok) {
+    const payload = await res.json().catch(() => ({}))
+    throw new Error((payload as any).error ?? res.statusText)
   }
 
-  if (response.status === 204) {
-    return undefined as T
-  }
-
-  return response.json() as Promise<T>
+  if (res.status === 204) return undefined as T
+  return res.json() as Promise<T>
 }
 
 export const api = {
-  getDashboard: (token: string) => request<DashboardMetrics>('/dashboard', token),
+  getDashboard: (token: string) => edge<DashboardMetrics>('get-dashboard', token),
 
-  listCustomers: (token: string, search?: string) => request<Customer[]>(`/customers?search=${encodeURIComponent(search ?? '')}`, token),
-  createCustomer: (token: string, body: Partial<Customer>) => request<Customer>('/customers', token, { method: 'POST', body: JSON.stringify(body) }),
-  updateCustomer: (token: string, id: string, body: Partial<Customer>) => request<Customer>(`/customers/${id}`, token, { method: 'PUT', body: JSON.stringify(body) }),
-  deleteCustomer: (token: string, id: string) => request<void>(`/customers/${id}`, token, { method: 'DELETE' }),
+  listCustomers: (token: string, search?: string) =>
+    edge<Customer[]>('get-customers', token, search ? { search } : {}),
+  createCustomer: (token: string, body: Partial<Customer>) =>
+    edge<Customer>('create-customer', token, body as Record<string, unknown>),
+  updateCustomer: (token: string, id: string, body: Partial<Customer>) =>
+    edge<Customer>('update-customer', token, { id, ...body }),
+  deleteCustomer: (token: string, id: string) =>
+    edge<void>('delete-customer', token, { id }),
 
-  listProducts: (token: string, search?: string) => request<Product[]>(`/products?search=${encodeURIComponent(search ?? '')}`, token),
-  createProduct: (token: string, body: Partial<Product>) => request<Product>('/products', token, { method: 'POST', body: JSON.stringify(body) }),
-  updateProduct: (token: string, id: string, body: Partial<Product>) => request<Product>(`/products/${id}`, token, { method: 'PUT', body: JSON.stringify(body) }),
-  deleteProduct: (token: string, id: string) => request<void>(`/products/${id}`, token, { method: 'DELETE' }),
+  listProducts: (token: string, search?: string) =>
+    edge<Product[]>('get-products', token, search ? { search } : {}),
+  createProduct: (token: string, body: Partial<Product>) =>
+    edge<Product>('create-product', token, body as Record<string, unknown>),
+  updateProduct: (token: string, id: string, body: Partial<Product>) =>
+    edge<Product>('update-product', token, { id, ...body }),
+  deleteProduct: (token: string, id: string) =>
+    edge<void>('delete-product', token, { id }),
 
-  listInvoices: (token: string) => request<Invoice[]>('/invoices', token),
-  getInvoice: (token: string, id: string) => request<{ invoice: Invoice; items: InvoiceItemInput[] }>(`/invoices/${id}`, token),
+  listInvoices: (token: string) => edge<Invoice[]>('get-invoices', token),
+  getInvoice: (token: string, id: string) =>
+    edge<{ invoice: Invoice; items: InvoiceItemInput[] }>('get-invoice', token, { id }),
   createInvoice: (
     token: string,
     payload: {
@@ -48,25 +81,33 @@ export const api = {
       status: Invoice['status']
       items: InvoiceItemInput[]
     },
-  ) => request<Invoice>('/invoices', token, { method: 'POST', body: JSON.stringify(payload) }),
+  ) => edge<Invoice>('create-invoice', token, payload as Record<string, unknown>),
 
-  listExpenses: (token: string) => request<Expense[]>('/expenses', token),
-  createExpense: (token: string, body: Partial<Expense>) => request<Expense>('/expenses', token, { method: 'POST', body: JSON.stringify(body) }),
-  updateExpense: (token: string, id: string, body: Partial<Expense>) => request<Expense>(`/expenses/${id}`, token, { method: 'PUT', body: JSON.stringify(body) }),
-  deleteExpense: (token: string, id: string) => request<void>(`/expenses/${id}`, token, { method: 'DELETE' }),
+  listExpenses: (token: string) => edge<Expense[]>('get-company-expenses', token),
+  createExpense: (token: string, body: Partial<Expense>) =>
+    edge<Expense>('create-company-expense', token, body as Record<string, unknown>),
+  updateExpense: (token: string, id: string, body: Partial<Expense>) =>
+    edge<Expense>('update-company-expense', token, { id, ...body }),
+  deleteExpense: (token: string, id: string) =>
+    edge<void>('delete-company-expense', token, { id }),
 
-  listTasks: (token: string) => request<Task[]>('/tasks', token),
-  createTask: (token: string, body: Partial<Task>) => request<Task>('/tasks', token, { method: 'POST', body: JSON.stringify(body) }),
-  updateTask: (token: string, id: string, body: Partial<Task>) => request<Task>(`/tasks/${id}`, token, { method: 'PUT', body: JSON.stringify(body) }),
-  deleteTask: (token: string, id: string) => request<void>(`/tasks/${id}`, token, { method: 'DELETE' }),
+  listTasks: (token: string) => edge<Task[]>('get-tasks', token),
+  createTask: (token: string, body: Partial<Task>) =>
+    edge<Task>('create-task', token, body as Record<string, unknown>),
+  updateTask: (token: string, id: string, body: Partial<Task>) =>
+    edge<Task>('update-task', token, { id, ...body }),
+  deleteTask: (token: string, id: string) =>
+    edge<void>('delete-task', token, { id }),
 
-  getReportSummary: (token: string, month: string) => request('/reports/summary?month=' + month, token),
+  getReportSummary: (token: string, month: string) =>
+    edge('get-reports-summary', token, { month }),
   downloadReportCsv: async (token: string, month: string) => {
-    const response = await fetch(`${API_URL}/reports/export.csv?month=${encodeURIComponent(month)}`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/export-invoices-csv`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ month }),
     })
-
-    if (!response.ok) throw new Error('CSV export failed')
-    return response.blob()
+    if (!res.ok) throw new Error('CSV export failed')
+    return res.blob()
   },
 }

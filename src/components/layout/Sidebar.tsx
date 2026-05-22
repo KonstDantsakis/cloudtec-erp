@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
-import { labels, Locale } from '../../locales/labels'
+import { labels } from '../../locales/labels'
+import { useLocale } from '../../context/LocaleContext'
 
 const links = [
   { to: '/', label: 'dashboard' },
@@ -11,14 +12,17 @@ const links = [
   { to: '/reports', label: 'reports' },
 ] as const
 
-export function Sidebar({ locale }: { locale: Locale }) {
+export function Sidebar() {
+  const { locale } = useLocale()
+  const l = labels[locale]
+
   return (
     <aside className="sidebar">
-      <h2>{labels[locale].appTitle}</h2>
+      <h2>{l.appTitle}</h2>
       <nav>
         {links.map((link) => (
           <NavLink key={link.to} to={link.to} end={link.to === '/'}>
-            {labels[locale][link.label]}
+            {l[link.label]}
           </NavLink>
         ))}
       </nav>

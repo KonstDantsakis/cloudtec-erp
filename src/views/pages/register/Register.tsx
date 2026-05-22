@@ -1,6 +1,5 @@
 // src/pages/auth/Register.tsx
-import React, { useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import React, { useState } from 'react'
 
 const RegisterPage: React.FC = () => {
   const [fullName, setFullName] = useState<string>('');
@@ -18,44 +17,17 @@ const RegisterPage: React.FC = () => {
   setError(null)
   setSuccess(null)
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        role: 'user',
-        full_name: fullName,
-      },
-    },
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+  const res = await fetch(`${supabaseUrl}/functions/v1/register-member`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, full_name: fullName, phone }),
   })
 
-  if (error) {
-    console.error('Supabase signUp error', error)
-    setError(error.message)
-    setLoading(false)
-    return
-  }
+  const json = await res.json().catch(() => ({}))
 
-  const user = data.user
-  if (!user) {
-    setError('Κάτι πήγε στραβά, προσπαθήστε ξανά.')
-    setLoading(false)
-    return
-  }
-
-  const { error: insertError } = await supabase.from('customers').insert({
-    auth_user_id: user.id,
-    full_name: fullName,
-    email,
-    phone,
-    registration_status: 'pending',
-  })
-
-  if (insertError) {
-    console.error(insertError)
-    setError(
-      'Η δημιουργία του λογαριασμού ολοκληρώθηκε, αλλά υπήρξε σφάλμα στην καταχώρηση των στοιχείων. Επικοινωνήστε με τον σύλλογο.',
-    )
+  if (!res.ok) {
+    setError((json as any).error ?? 'Σφάλμα κατά την εγγραφή.')
     setLoading(false)
     return
   }

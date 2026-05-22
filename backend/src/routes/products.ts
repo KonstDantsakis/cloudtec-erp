@@ -1,46 +1,47 @@
 import { Router } from 'express'
-import { z } from 'zod'
-import { supabaseAdmin } from '../lib/supabase'
+import { callEdge } from '../lib/edgeClient'
 import { badRequest } from '../utils/http'
-
-const schema = z.object({
-  company_id: z.string(),
-  name: z.string().min(2),
-  type: z.enum(['product', 'service']),
-  price: z.number().nonnegative(),
-  vat_rate: z.number().min(0),
-  stock_quantity: z.number().min(0),
-  description: z.string().optional(),
-})
 
 export const productsRouter = Router()
 
 productsRouter.get('/', async (req, res) => {
-  const search = (req.query.search as string | undefined)?.trim()
-  let query = supabaseAdmin.from('products').select('*').eq('company_id', req.body.company_id)
-  if (search) query = query.ilike('name', `%${search}%`)
-  const { data } = await query.order('created_at', { ascending: false })
-  res.json(data ?? [])
+  try {
+    const search = (req.query.search as string | undefined)?.trim()
+    const data = await callEdge<any[]>('get-products', req.user!.token, {
+      company_id: req.body.company_id,
+      ...(search ? { search } : {}),
+    })
+    res.json(data)
+  } catch (e: any) { return badRequest(res, e.message) }
 })
 
 productsRouter.post('/', async (req, res) => {
-  const parsed = schema.safeParse(req.body)
-  if (!parsed.success) return badRequest(res, parsed.error.issues[0].message)
-  const { data, error } = await supabaseAdmin.from('products').insert(parsed.data).select('*').single()
-  if (error) return badRequest(res, error.message)
-  res.status(201).json(data)
+  try {
+    const data = await callEdge<any>('create-product', req.user!.token, {
+      ...req.body,
+      company_id: req.body.company_id,
+    })
+    res.status(201).json(data)
+  } catch (e: any) { return badRequest(res, e.message) }
 })
 
 productsRouter.put('/:id', async (req, res) => {
-  const parsed = schema.partial().safeParse(req.body)
-  if (!parsed.success) return badRequest(res, parsed.error.issues[0].message)
-  const { data, error } = await supabaseAdmin.from('products').update(parsed.data).eq('id', req.params.id).eq('company_id', req.body.company_id).select('*').single()
-  if (error) return badRequest(res, error.message)
-  res.json(data)
+  try {
+    const data = await callEdge<any>('update-product', req.user!.token, {
+      id: req.params.id,
+      ...req.body,
+      company_id: req.body.company_id,
+    })
+    res.json(data)
+  } catch (e: any) { return badRequest(res, e.message) }
 })
 
 productsRouter.delete('/:id', async (req, res) => {
-  const { error } = await supabaseAdmin.from('products').delete().eq('id', req.params.id).eq('company_id', req.body.company_id)
-  if (error) return badRequest(res, error.message)
-  res.status(204).send()
+  try {
+    await callEdge('delete-product', req.user!.token, {
+      id: req.params.id,
+      company_id: req.body.company_id,
+    })
+    res.status(204).send()
+  } catch (e: any) { return badRequest(res, e.message) }
 })

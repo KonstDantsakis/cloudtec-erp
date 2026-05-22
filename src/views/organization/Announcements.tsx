@@ -23,7 +23,7 @@ import {
   CTableHead,
   CTableRow,
 } from '@coreui/react'
-import { supabase } from '@/lib/supabaseClient'
+import { callEdge } from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
 
 type AnnouncementRow = {
@@ -55,7 +55,7 @@ const emptyForm: AnnouncementForm = {
 }
 
 const Announcements: React.FC = () => {
-  const { profile } = useAuth()
+  const { user } = useAuth()
 
   const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([])
   const [classes, setClasses] = useState<Option[]>([])
@@ -80,47 +80,32 @@ const Announcements: React.FC = () => {
     setLoading(true)
     setError(null)
 
-    const { data, error } = await supabase
-      .from('announcements')
-      .select(
-        `
-        id,
-        title,
-        message,
-        class_id,
-        is_active,
-        created_by,
-        created_at,
-        updated_at,
-        classes ( id, title )
-      `,
-      )
-      .order('created_at', { ascending: false })
+    const { data, error } = await callEdge<AnnouncementRow[]>('get-announcements')
 
     if (error) {
-      console.error('[Announcements] load error:', error.message)
+      console.error('[Announcements] load error:', error)
       setError('Προέκυψε σφάλμα κατά τη φόρτωση των ανακοινώσεων.')
       setAnnouncements([])
     } else {
-      setAnnouncements((data ?? []) as unknown as AnnouncementRow[])
+      setAnnouncements(data ?? [])
     }
 
     setLoading(false)
   }
 
   const loadClasses = async () => {
-    const { data, error } = await supabase.from('classes').select('id, title').order('title')
+    const { data, error } = await callEdge<any[]>('get-classes')
 
     if (error) {
-      console.error('[Announcements] classes load error:', error.message)
+      console.error('[Announcements] classes load error:', error)
       setClasses([])
       return
     }
 
     setClasses(
-      (data ?? []).map((c) => ({
-        id: (c as any).id,
-        label: (c as any).title || '(Χωρίς τίτλο)',
+      (data ?? []).map((c: any) => ({
+        id: c.id,
+        label: c.title || '(Χωρίς τίτλο)',
       })),
     )
   }
@@ -222,23 +207,17 @@ const Announcements: React.FC = () => {
       message: form.message.trim(),
       class_id: form.class_id || null,
       is_active: form.is_active === 'true',
-      created_by: editingItem?.created_by ?? profile?.id ?? null,
+      created_by: editingItem?.created_by ?? user?.id ?? null,
       // updated_at στο Supabase μπορείς να έχεις trigger, αλλά εδώ απλώς αφήνουμε το default
     }
 
     if (editingItem) {
-      const { error } = await supabase
-        .from('announcements')
-        .update({
-          ...payload,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', editingItem.id)
+      const { error } = await callEdge('update-announcement', { id: editingItem.id, ...payload })
 
       setSaving(false)
 
       if (error) {
-        console.error('[Announcements] update error:', error.message)
+        console.error('[Announcements] update error:', error)
         setError('Προέκυψε σφάλμα κατά την ενημέρωση της ανακοίνωσης.')
         return
       }
@@ -249,17 +228,12 @@ const Announcements: React.FC = () => {
       return
     }
 
-    const { error } = await supabase.from('announcements').insert([
-      {
-        ...payload,
-        created_at: new Date().toISOString(),
-      },
-    ])
+    const { error } = await callEdge('create-announcement', payload)
 
     setSaving(false)
 
     if (error) {
-      console.error('[Announcements] insert error:', error.message)
+      console.error('[Announcements] insert error:', error)
       setError('Προέκυψε σφάλμα κατά την αποθήκευση της ανακοίνωσης.')
       return
     }
@@ -279,12 +253,12 @@ const Announcements: React.FC = () => {
     setRowActionId(item.id)
     setError(null)
 
-    const { error } = await supabase.from('announcements').delete().eq('id', item.id)
+    const { error } = await callEdge('delete-announcement', { id: item.id })
 
     setRowActionId(null)
 
     if (error) {
-      console.error('[Announcements] delete error:', error.message)
+      console.error('[Announcements] delete error:', error)
       setError('Προέκυψε σφάλμα κατά τη διαγραφή της ανακοίνωσης.')
       return
     }

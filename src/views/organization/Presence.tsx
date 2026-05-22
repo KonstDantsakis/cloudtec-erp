@@ -16,7 +16,7 @@ import {
   CTableHead,
   CTableRow,
 } from '@coreui/react'
-import { supabase } from '@/lib/supabaseClient'
+import { callEdge } from '@/services/api'
 
 type ClassRow = {
   id: string
@@ -95,24 +95,22 @@ const Presence: React.FC = () => {
       const { startStr, endStr } = monthRange(date)
 
       // 1) Τμήματα που έχουν μάθημα τη συγκεκριμένη μέρα
-      const { data: classesData, error: classesErr } = await supabase
-        .from('classes')
-        .select('id, title, level, day_of_week, active')
-        .eq('active', true)
-        .eq('day_of_week', dbDay)
-        .order('title', { ascending: true })
+      const { data: allClasses, error: classesErr } = await callEdge<any[]>('get-classes')
 
       if (classesErr) {
-        console.error('[Presence] classes error:', classesErr.message)
+        console.error('[Presence] classes error:', classesErr)
         throw new Error('Προέκυψε σφάλμα κατά τη φόρτωση των τμημάτων.')
       }
 
-      const classesRows: ClassRow[] = (classesData ?? []).map((c: any) => ({
-        id: c.id as string,
-        title: c.title as string,
-        level: (c.level as string) ?? null,
-        day_of_week: (c.day_of_week as number) ?? null,
-      }))
+      const classesRows: ClassRow[] = (allClasses ?? [])
+        .filter((c: any) => c.active === true && c.day_of_week === dbDay)
+        .sort((a: any, b: any) => (a.title ?? '').localeCompare(b.title ?? ''))
+        .map((c: any) => ({
+          id: c.id as string,
+          title: c.title as string,
+          level: (c.level as string) ?? null,
+          day_of_week: (c.day_of_week as number) ?? null,
+        }))
 
       setClassesForDay(classesRows)
 
@@ -126,18 +124,16 @@ const Presence: React.FC = () => {
       }
 
       // 2) Μέλη που ανήκουν σε αυτά τα τμήματα (primary_class_id)
-      const { data: custData, error: custErr } = await supabase
-        .from('customers')
-        .select('id, full_name, email, phone, status, primary_class_id')
-        .eq('status', 'Ενεργός')
-        .in('primary_class_id', classIds)
+      const { data: custData, error: custErr } = await callEdge<any[]>('get-customers')
 
       if (custErr) {
-        console.error('[Presence] customers error:', custErr.message)
+        console.error('[Presence] customers error:', custErr)
         throw new Error('Προέκυψε σφάλμα κατά τη φόρτωση των μελών.')
       }
 
-      const customersRows = (custData ?? []) as CustomerRow[]
+      const customersRows = (custData ?? []).filter(
+        (c: any) => c.status === 'Ενεργός' && classIds.includes(c.primary_class_id),
+      ) as CustomerRow[]
       setCustomers(customersRows)
 
       const customerIds = customersRows.map((c) => c.id)
@@ -150,16 +146,15 @@ const Presence: React.FC = () => {
       }
 
       // 3) Παρουσίες μήνα για αυτά τα τμήματα & μέλη
-      const { data: attData, error: attErr } = await supabase
-        .from('attendance')
-        .select('id, customer_id, class_id, attendance_date, is_present')
-        .gte('attendance_date', startStr)
-        .lt('attendance_date', endStr)
-        .in('class_id', classIds)
-        .in('customer_id', customerIds)
+      const { data: attData, error: attErr } = await callEdge<any[]>('get-attendance', {
+        date_from: startStr,
+        date_to: endStr,
+        class_ids: classIds,
+        customer_ids: customerIds,
+      })
 
       if (attErr) {
-        console.error('[Presence] attendance error:', attErr.message)
+        console.error('[Presence] attendance error:', attErr)
         throw new Error('Προέκυψε σφάλμα κατά τη φόρτωση παρουσιών.')
       }
 
@@ -216,30 +211,25 @@ const Presence: React.FC = () => {
 
     try {
       if (existing) {
-        const { error } = await supabase
-          .from('attendance')
-          .update({
-            is_present: checked,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existing.id)
+        const { error } = await callEdge('update-attendance', {
+          id: existing.id,
+          is_present: checked,
+        })
 
         if (error) {
-          console.error('[Presence] update error:', error.message)
+          console.error('[Presence] update error:', error)
           throw new Error('Σφάλμα κατά την ενημέρωση παρουσίας.')
         }
       } else {
-        const { error } = await supabase.from('attendance').insert([
-          {
-            customer_id: customer.id,
-            class_id: classRow.id,
-            attendance_date: currentDateStr,
-            is_present: checked,
-          },
-        ])
+        const { error } = await callEdge('create-attendance', {
+          customer_id: customer.id,
+          class_id: classRow.id,
+          attendance_date: currentDateStr,
+          is_present: checked,
+        })
 
         if (error) {
-          console.error('[Presence] insert error:', error.message)
+          console.error('[Presence] insert error:', error)
           throw new Error('Σφάλμα κατά την καταχώρηση παρουσίας.')
         }
       }

@@ -25,6 +25,7 @@ import {
   CTableRow,
 } from '@coreui/react'
 import { supabase } from '@/lib/supabaseClient'
+import { callEdge } from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
 
 type SponsorRow = {
@@ -59,7 +60,7 @@ const emptyForm: SponsorForm = {
 }
 
 const SponsorsBanners: React.FC = () => {
-  const { profile } = useAuth()
+  const { user } = useAuth()
 
   const [sponsors, setSponsors] = useState<SponsorRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -85,18 +86,14 @@ const SponsorsBanners: React.FC = () => {
     setLoading(true)
     setError(null)
 
-    const { data, error } = await supabase
-      .from('sponsors')
-      .select('*')
-      .order('position', { ascending: true, nullsFirst: true })
-      .order('created_at', { ascending: false })
+    const { data, error } = await callEdge<SponsorRow[]>('get-sponsors')
 
     if (error) {
-      console.error('[Sponsors] load error:', error.message)
+      console.error('[Sponsors] load error:', error)
       setError('Προέκυψε σφάλμα κατά τη φόρτωση των χορηγών.')
       setSponsors([])
     } else {
-      setSponsors((data ?? []) as SponsorRow[])
+      setSponsors(data ?? [])
     }
 
     setLoading(false)
@@ -249,22 +246,16 @@ const SponsorsBanners: React.FC = () => {
       link_url: form.link_url.trim() || null,
       position: positionNumber,
       is_active: form.is_active === 'true',
-      created_by: editingItem?.created_by ?? profile?.id ?? null,
+      created_by: editingItem?.created_by ?? user?.id ?? null,
     }
 
     if (editingItem) {
-      const { error } = await supabase
-        .from('sponsors')
-        .update({
-          ...payload,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', editingItem.id)
+      const { error } = await callEdge('update-sponsor', { id: editingItem.id, ...payload })
 
       setSaving(false)
 
       if (error) {
-        console.error('[Sponsors] update error:', error.message)
+        console.error('[Sponsors] update error:', error)
         setError('Προέκυψε σφάλμα κατά την ενημέρωση του χορηγού.')
         return
       }
@@ -275,17 +266,12 @@ const SponsorsBanners: React.FC = () => {
       return
     }
 
-    const { error } = await supabase.from('sponsors').insert([
-      {
-        ...payload,
-        created_at: new Date().toISOString(),
-      },
-    ])
+    const { error } = await callEdge('create-sponsor', payload)
 
     setSaving(false)
 
     if (error) {
-      console.error('[Sponsors] insert error:', error.message)
+      console.error('[Sponsors] insert error:', error)
       setError('Προέκυψε σφάλμα κατά την αποθήκευση του χορηγού.')
       return
     }
@@ -305,12 +291,12 @@ const SponsorsBanners: React.FC = () => {
     setRowActionId(item.id)
     setError(null)
 
-    const { error } = await supabase.from('sponsors').delete().eq('id', item.id)
+    const { error } = await callEdge('delete-sponsor', { id: item.id })
 
     setRowActionId(null)
 
     if (error) {
-      console.error('[Sponsors] delete error:', error.message)
+      console.error('[Sponsors] delete error:', error)
       setError('Προέκυψε σφάλμα κατά τη διαγραφή του χορηγού.')
       return
     }

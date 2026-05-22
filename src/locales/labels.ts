@@ -1,5 +1,6 @@
-export const labels = {
+const t = {
   en: {
+    // nav / layout
     appTitle: 'Multi-tenant ERP',
     dashboard: 'Dashboard',
     customers: 'Customers',
@@ -10,8 +11,107 @@ export const labels = {
     reports: 'Reports',
     logout: 'Logout',
     loginTitle: 'Sign in to your ERP',
+    loggedAs: 'Logged as',
+    companyLabel: 'Company',
+
+    // common
+    save: 'Save',
+    saving: 'Saving…',
+    cancel: 'Cancel',
+    edit: 'Edit',
+    delete: 'Delete',
+    search: 'Search',
+    cannotUndo: 'This action cannot be undone.',
+
+    // customers
+    customersTitle: 'Customers',
+    addCustomer: '+ Add customer',
+    editCustomer: 'Edit customer',
+    newCustomer: 'Add customer',
+    searchCustomer: 'Search customer…',
+    name: 'Name',
+    email: 'Email',
+    phone: 'Phone',
+    address: 'Address',
+    taxNumber: 'Tax number',
+    notes: 'Notes',
+    deleteCustomerTitle: 'Delete customer',
+    deleteCustomerMsg: (name: string) => `Are you sure you want to delete ${name}?`,
+
+    // products
+    productsTitle: 'Products / Services',
+    addItem: '+ Add item',
+    editItem: 'Edit item',
+    newItem: 'Add item',
+    searchProduct: 'Search product…',
+    type: 'Type',
+    price: 'Price',
+    vat: 'VAT %',
+    stock: 'Stock quantity',
+    description: 'Description',
+    productType: 'Product',
+    serviceType: 'Service',
+    deleteProductTitle: 'Delete product',
+    deleteProductMsg: (name: string) => `Are you sure you want to delete ${name}?`,
+
+    // expenses
+    expensesTitle: 'Expenses',
+    addExpense: '+ Add expense',
+    editExpense: 'Edit expense',
+    newExpense: 'Add expense',
+    supplier: 'Supplier',
+    category: 'Category',
+    amount: 'Amount',
+    date: 'Date',
+    deleteExpenseTitle: 'Delete expense',
+    deleteExpenseMsg: (s: string) => `Are you sure you want to delete the expense from ${s}?`,
+
+    // dashboard
+    dashboardTitle: 'Dashboard',
+    totalCustomers: 'Total customers',
+    totalProducts: 'Total products',
+    monthlySales: 'Monthly sales',
+    pendingInvoices: 'Pending invoices',
+
+    // invoices
+    invoicesTitle: 'Sales / Invoices',
+    selectCustomer: 'Select customer',
+    addLine: '+ Add line',
+    createInvoice: 'Create invoice',
+    invoiceNumber: 'Invoice #',
+    issueDate2: 'Issue Date',
+    total: 'Total',
+    printable: 'Printable',
+    productService: 'Product/service',
+    subtotal: 'Subtotal',
+    invoiceStatusDraft: 'Draft',
+    invoiceStatusUnpaid: 'Unpaid',
+    invoiceStatusPaid: 'Paid',
+    invoiceStatusCancelled: 'Cancelled',
+
+    // reports
+    reportsTitle: 'Reports',
+    exportCsv: 'Export CSV',
+    income: 'Income',
+    profitEstimate: 'Profit estimate',
+    salesPerCustomer: 'Sales per customer',
+
+    // tasks
+    tasksTitle: 'Tasks',
+    createTask: '+ Create task',
+    editTask: 'Edit task',
+    newTask: 'Create task',
+    title: 'Title',
+    statusLabel: 'Status',
+    dueDate: 'Due date',
+    pending: 'Pending',
+    inProgress: 'In progress',
+    done: 'Done',
+    deleteTaskTitle: 'Delete task',
+    deleteTaskMsg: (t: string) => `Are you sure you want to delete "${t}"?`,
   },
   el: {
+    // nav / layout
     appTitle: 'Πολυεταιρικό ERP',
     dashboard: 'Πίνακας Ελέγχου',
     customers: 'Πελάτες',
@@ -22,7 +122,107 @@ export const labels = {
     reports: 'Αναφορές',
     logout: 'Αποσύνδεση',
     loginTitle: 'Σύνδεση στο ERP',
+    loggedAs: 'Συνδεδεμένος ως',
+    companyLabel: 'Εταιρεία',
+
+    // common
+    save: 'Αποθήκευση',
+    saving: 'Αποθήκευση…',
+    cancel: 'Ακύρωση',
+    edit: 'Επεξεργασία',
+    delete: 'Διαγραφή',
+    search: 'Αναζήτηση',
+    cannotUndo: 'Η ενέργεια δεν μπορεί να αναιρεθεί.',
+
+    // customers
+    customersTitle: 'Πελάτες',
+    addCustomer: '+ Προσθήκη πελάτη',
+    editCustomer: 'Επεξεργασία πελάτη',
+    newCustomer: 'Νέος πελάτης',
+    searchCustomer: 'Αναζήτηση πελάτη…',
+    name: 'Όνομα',
+    email: 'Email',
+    phone: 'Τηλέφωνο',
+    address: 'Διεύθυνση',
+    taxNumber: 'ΑΦΜ',
+    notes: 'Σημειώσεις',
+    deleteCustomerTitle: 'Διαγραφή πελάτη',
+    deleteCustomerMsg: (name: string) => `Είσαι σίγουρος ότι θέλεις να διαγράψεις τον ${name};`,
+
+    // products
+    productsTitle: 'Προϊόντα / Υπηρεσίες',
+    addItem: '+ Προσθήκη',
+    editItem: 'Επεξεργασία',
+    newItem: 'Νέο προϊόν',
+    searchProduct: 'Αναζήτηση προϊόντος…',
+    type: 'Τύπος',
+    price: 'Τιμή',
+    vat: 'ΦΠΑ %',
+    stock: 'Απόθεμα',
+    description: 'Περιγραφή',
+    productType: 'Προϊόν',
+    serviceType: 'Υπηρεσία',
+    deleteProductTitle: 'Διαγραφή προϊόντος',
+    deleteProductMsg: (name: string) => `Είσαι σίγουρος ότι θέλεις να διαγράψεις το ${name};`,
+
+    // expenses
+    expensesTitle: 'Έξοδα',
+    addExpense: '+ Προσθήκη εξόδου',
+    editExpense: 'Επεξεργασία εξόδου',
+    newExpense: 'Νέο έξοδο',
+    supplier: 'Προμηθευτής',
+    category: 'Κατηγορία',
+    amount: 'Ποσό',
+    date: 'Ημερομηνία',
+    deleteExpenseTitle: 'Διαγραφή εξόδου',
+    deleteExpenseMsg: (s: string) => `Είσαι σίγουρος ότι θέλεις να διαγράψεις το έξοδο από ${s};`,
+
+    // dashboard
+    dashboardTitle: 'Πίνακας Ελέγχου',
+    totalCustomers: 'Σύνολο πελατών',
+    totalProducts: 'Σύνολο προϊόντων',
+    monthlySales: 'Μηνιαίες πωλήσεις',
+    pendingInvoices: 'Εκκρεμή τιμολόγια',
+
+    // invoices
+    invoicesTitle: 'Πωλήσεις / Τιμολόγια',
+    selectCustomer: 'Επιλογή πελάτη',
+    addLine: '+ Προσθήκη γραμμής',
+    createInvoice: 'Δημιουργία τιμολογίου',
+    invoiceNumber: 'Αρ. Τιμολογίου',
+    issueDate2: 'Ημ. Έκδοσης',
+    total: 'Σύνολο',
+    printable: 'Εκτύπωση',
+    productService: 'Προϊόν/υπηρεσία',
+    subtotal: 'Υποσύνολο',
+    invoiceStatusDraft: 'Πρόχειρο',
+    invoiceStatusUnpaid: 'Απλήρωτο',
+    invoiceStatusPaid: 'Πληρωμένο',
+    invoiceStatusCancelled: 'Ακυρωμένο',
+
+    // reports
+    reportsTitle: 'Αναφορές',
+    exportCsv: 'Εξαγωγή CSV',
+    income: 'Έσοδα',
+    profitEstimate: 'Εκτίμηση κέρδους',
+    salesPerCustomer: 'Πωλήσεις ανά πελάτη',
+
+    // tasks
+    tasksTitle: 'Εργασίες',
+    createTask: '+ Νέα εργασία',
+    editTask: 'Επεξεργασία εργασίας',
+    newTask: 'Νέα εργασία',
+    title: 'Τίτλος',
+    statusLabel: 'Κατάσταση',
+    dueDate: 'Ημ. λήξης',
+    pending: 'Εκκρεμεί',
+    inProgress: 'Σε εξέλιξη',
+    done: 'Ολοκληρώθηκε',
+    deleteTaskTitle: 'Διαγραφή εργασίας',
+    deleteTaskMsg: (t: string) => `Είσαι σίγουρος ότι θέλεις να διαγράψεις την εργασία "${t}";`,
   },
 }
 
-export type Locale = keyof typeof labels
+export const labels = t
+export type Locale = keyof typeof t
+export type Labels = typeof t.en

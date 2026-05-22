@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Recurse -Depth 2)",
+      "Bash(Select-Object FullName)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\surfe\\\\Desktop\\\\Cloudtec Projects\\\\cloudtec-erp\" -Recurse -Force)",
+      "Bash(Select-Object -First 50)",
+      "Bash(Format-Table FullName)",
+      "Bash(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\surfe\\\\Desktop\\\\Cloudtec Projects\\\\cloudtec-erp\\\\src\\\\services\")",
+      "Bash(Out-Null)",
+      "Bash(Write-Output \"done\")",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
+      "Bash(echo '=== __TRACKED_VAR__ ===')",
+      "Bash(cat 'c:/Users/surfe/Desktop/Cloudtec Projects/cloudtec-erp/supabase/functions/__TRACKED_VAR__/index.ts')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /PID 19072 /F)",
+      "PowerShell(Stop-Process -Id 19072 -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 5173,5174,5175,5176,5177 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }; Write-Output \"All killed\")",
+      "PowerShell(Get-NetTCPConnection -LocalPort 5173,5174,5175,5176,5177 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }; Write-Host \"All Vite processes killed\")",
+      "PowerShell(Set-Location \"c:\\\\Users\\\\surfe\\\\Desktop\\\\Cloudtec Projects\\\\cloudtec-erp\"; Start-Process powershell -ArgumentList \"-NoExit\", \"-Command\", \"npm run dev\" -WindowStyle Normal; Start-Sleep -Seconds 3; Test-NetConnection -ComputerName localhost -Port 5173 -InformationLevel Quiet)",
+      "PowerShell($pid = \\(Get-NetTCPConnection -LocalPort 5173 -ErrorAction SilentlyContinue\\).OwningProcess | Select-Object -First 1; if \\($pid\\) { Stop-Process -Id $pid -Force; Write-Host \"Killed PID $pid\" } else { Write-Host \"Nothing on 5173\" })",
+      "PowerShell($p = \\(Get-NetTCPConnection -LocalPort 5173 -ErrorAction SilentlyContinue\\).OwningProcess | Select-Object -First 1; if \\($p\\) { Stop-Process -Id $p -Force; Write-Host \"Killed $p\" } else { Write-Host \"Nothing on 5173\" })",
+      "PowerShell(Get-NetTCPConnection -LocalPort 5173 -ErrorAction SilentlyContinue)",
+      "PowerShell(taskkill /F /PID 8008 2>&1)",
+      "PowerShell(Get-Process -Name \"node\" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host \"PID: $\\($_.Id\\) - $\\($_.MainWindowTitle\\)\" })",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue)"
+    ]
+  }
+}

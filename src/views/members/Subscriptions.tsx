@@ -24,7 +24,7 @@ import {
   CTableHead,
   CTableRow,
 } from '@coreui/react'
-import { supabase } from '@/lib/supabaseClient'
+import { callEdge } from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
 import jsPDF from 'jspdf'
 
@@ -164,60 +164,22 @@ const Subscriptions: React.FC = () => {
     setLoading(true)
     setError(null)
 
-    const { data, error } = await supabase
-      .from('incomes')
-      .select(
-        `
-        id,
-        customer_id,
-        class_id,
-        category,
-        amount_cents,
-        currency,
-        method,
-        status,
-        paid_at,
-        notes,
-        created_by,
-        created_at,
-        customers(id, full_name),
-        classes(id, title)
-      `,
-      )
-      .order('paid_at', { ascending: false })
+    const { data, error } = await callEdge<IncomeRow[]>('get-incomes')
 
     if (error) {
-      console.error('[Subscriptions] Error loading incomes:', error.message)
+      console.error('[Subscriptions] Error loading incomes:', error)
       setError('Προέκυψε σφάλμα κατά τη φόρτωση των συνδρομών.')
       setIncomes([])
     } else {
-      setIncomes((data ?? []) as unknown as IncomeRow[])
+      setIncomes(data ?? [])
     }
     setLoading(false)
   }
 
   const loadOptions = async () => {
     const [{ data: cData }, { data: clsData }] = await Promise.all([
-      // 🔁 customers + primary class
-      supabase
-        .from('customers')
-        .select(
-          `
-          id,
-          full_name,
-          primary_class_id,
-          primary_class:primary_class_id (
-            id,
-            title,
-            price_cents
-          )
-        `,
-        )
-        .order('full_name'),
-      supabase
-        .from('classes')
-        .select('id, title, price_cents')
-        .order('title'),
+      callEdge<any[]>('get-customers'),
+      callEdge<any[]>('get-classes'),
     ])
 
     setCustomers(
@@ -427,15 +389,12 @@ const Subscriptions: React.FC = () => {
     }
 
     if (editingIncome) {
-      const { error } = await supabase
-        .from('incomes')
-        .update(payload)
-        .eq('id', editingIncome.id)
+      const { error } = await callEdge('update-income', { id: editingIncome.id, ...payload })
 
       setSaving(false)
 
       if (error) {
-        console.error('[Subscriptions] update income error:', error.message)
+        console.error('[Subscriptions] update income error:', error)
         setError('Προέκυψε σφάλμα κατά την ενημέρωση της συνδρομής.')
         return
       }
@@ -446,12 +405,12 @@ const Subscriptions: React.FC = () => {
       return
     }
 
-    const { error } = await supabase.from('incomes').insert([payload])
+    const { error } = await callEdge('create-income', payload)
 
     setSaving(false)
 
     if (error) {
-      console.error('[Subscriptions] insert income error:', error.message)
+      console.error('[Subscriptions] insert income error:', error)
       setError('Προέκυψε σφάλμα κατά την αποθήκευση της συνδρομής.')
       return
     }
@@ -472,12 +431,12 @@ const Subscriptions: React.FC = () => {
     setRowActionId(income.id)
     setError(null)
 
-    const { error } = await supabase.from('incomes').delete().eq('id', income.id)
+    const { error } = await callEdge('delete-income', { id: income.id })
 
     setRowActionId(null)
 
     if (error) {
-      console.error('[Subscriptions] delete income error:', error.message)
+      console.error('[Subscriptions] delete income error:', error)
       setError('Προέκυψε σφάλμα κατά τη διαγραφή της συνδρομής.')
       return
     }

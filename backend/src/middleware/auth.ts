@@ -9,6 +9,7 @@ declare global {
         role: 'super_admin' | 'company_admin' | 'employee'
         company_id: string | null
         email: string
+        token: string
       }
     }
   }
@@ -27,6 +28,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     role: (data.user.user_metadata?.role as any) ?? 'employee',
     company_id: (data.user.user_metadata?.company_id as string | null) ?? null,
     email: data.user.email ?? '',
+    token,
   }
 
   next()

@@ -23,7 +23,7 @@ import {
   CTableHead,
   CTableRow,
 } from '@coreui/react'
-import { supabase } from '@/lib/supabaseClient'
+import { callEdge } from '@/services/api'
 
 type ClassRow = {
   id: string
@@ -113,18 +113,14 @@ const Classes: React.FC = () => {
     setLoading(true)
     setError(null)
 
-    const { data, error } = await supabase
-      .from('classes')
-      .select('*')
-      .order('day_of_week', { ascending: true })
-      .order('start_time', { ascending: true })
+    const { data, error } = await callEdge<ClassRow[]>('get-classes')
 
     if (error) {
-      console.error('[Classes] Error loading classes:', error.message)
+      console.error('[Classes] Error loading classes:', error)
       setError('Προέκυψε σφάλμα κατά τη φόρτωση των τμημάτων.')
       setClasses([])
     } else {
-      setClasses((data ?? []) as ClassRow[])
+      setClasses(data ?? [])
     }
 
     setLoading(false)
@@ -238,19 +234,19 @@ const Classes: React.FC = () => {
 
     try {
       if (editingClass) {
-        const { error } = await supabase.from('classes').update(payload).eq('id', editingClass.id)
+        const { error } = await callEdge('update-class', { id: editingClass.id, ...payload })
 
         if (error) {
-          console.error('[Classes] update class error:', error.message)
+          console.error('[Classes] update class error:', error)
           setError('Προέκυψε σφάλμα κατά την ενημέρωση του τμήματος.')
           setSaving(false)
           return
         }
       } else {
-        const { error } = await supabase.from('classes').insert([payload])
+        const { error } = await callEdge('create-class', payload)
 
         if (error) {
-          console.error('[Classes] insert class error:', error.message)
+          console.error('[Classes] insert class error:', error)
           setError('Προέκυψε σφάλμα κατά την αποθήκευση του τμήματος.')
           setSaving(false)
           return
@@ -277,12 +273,12 @@ const Classes: React.FC = () => {
     setRowActionId(cls.id)
     setError(null)
 
-    const { error } = await supabase.from('classes').delete().eq('id', cls.id)
+    const { error } = await callEdge('delete-class', { id: cls.id })
 
     setRowActionId(null)
 
     if (error) {
-      console.error('[Classes] delete class error:', error.message)
+      console.error('[Classes] delete class error:', error)
       setError('Προέκυψε σφάλμα κατά τη διαγραφή του τμήματος.')
       return
     }
@@ -295,15 +291,12 @@ const Classes: React.FC = () => {
     setRowActionId(cls.id)
     setError(null)
 
-    const { error } = await supabase
-      .from('classes')
-      .update({ active: newActive })
-      .eq('id', cls.id)
+    const { error } = await callEdge('toggle-class-active', { id: cls.id, active: newActive })
 
     setRowActionId(null)
 
     if (error) {
-      console.error('[Classes] toggle active error:', error.message)
+      console.error('[Classes] toggle active error:', error)
       setError('Προέκυψε σφάλμα κατά την αλλαγή της κατάστασης.')
       return
     }
